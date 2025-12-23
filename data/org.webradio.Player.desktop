@@ -1,0 +1,19 @@
+[Desktop Entry]
+Name=WebRadio Player
+GenericName=Internet Radio Player
+Comment=Listen to thousands of internet radio stations
+Comment[de]=Höre tausende von Internet-Radiosendern
+Exec=webradio
+Icon=org.webradio.Player
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Player;GTK;GNOME;
+Keywords=radio;internet;stream;music;audio;
+StartupNotify=true
+StartupWMClass=org.webradio.Player
+Actions=Quit;
+
+[Desktop Action Quit]
+Name=Quit
+Name[de]=Beenden
+Exec=webradio --quit

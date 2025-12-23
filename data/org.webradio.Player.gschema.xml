@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.webradio.Player" path="/org/webradio/Player/">
+
+    <!-- General Settings -->
+    <key name="language" type="s">
+      <default>"auto"</default>
+      <summary>Interface Language</summary>
+      <description>Language for the user interface (auto, en, de)</description>
+    </key>
+
+    <key name="minimize-to-tray" type="b">
+      <default>false</default>
+      <summary>Minimize to System Tray</summary>
+      <description>When playing, minimize to system tray instead of closing</description>
+    </key>
+
+    <key name="notify-on-minimize" type="b">
+      <default>false</default>
+      <summary>Notify on Minimize</summary>
+      <description>Show a notification when the application is minimized. This is often redundant on desktops with MPRIS support (like GNOME).</description>
+    </key>
+
+    <key name="remember-last-station" type="b">
+      <default>false</default>
+      <summary>Remember Last Station</summary>
+      <description>Automatically load the last played station on startup</description>
+    </key>
+
+    <!-- Window State -->
+    <key name="window-width" type="i">
+      <default>900</default>
+      <summary>Window Width</summary>
+      <description>Width of the main window</description>
+    </key>
+
+    <key name="window-height" type="i">
+      <default>700</default>
+      <summary>Window Height</summary>
+      <description>Height of the main window</description>
+    </key>
+
+    <key name="window-maximized" type="b">
+      <default>false</default>
+      <summary>Window Maximized</summary>
+      <description>Whether the window is maximized</description>
+    </key>
+
+    <!-- Audio Settings -->
+    <key name="volume" type="d">
+      <default>0.8</default>
+      <range min="0.0" max="1.0"/>
+      <summary>Volume Level</summary>
+      <description>Audio volume level (0.0-1.0)</description>
+    </key>
+
+    <key name="normalize-volume" type="b">
+      <default>false</default>
+      <summary>Normalize Volume</summary>
+      <description>Automatically normalize audio volume across different streams</description>
+    </key>
+
+    <key name="buffer-size" type="i">
+      <default>200000</default>
+      <summary>Buffer Size</summary>
+      <description>Network buffer size in bytes for streaming</description>
+    </key>
+
+    <!-- Equalizer Settings -->
+    <key name="equalizer-enabled" type="b">
+      <default>false</default>
+      <summary>Equalizer Enabled</summary>
+      <description>Enable or disable the 10-band equalizer</description>
+    </key>
+
+    <key name="equalizer-preset" type="s">
+      <default>"flat"</default>
+      <summary>Equalizer Preset</summary>
+      <description>Current equalizer preset (flat, rock, pop, jazz, classical, speech, bass-boost, treble-boost, custom)</description>
+    </key>
+
+    <key name="equalizer-band0" type="d">
+      <default>0.0</default>
+      <range min="-24.0" max="12.0"/>
+      <summary>Equalizer Band 0 (31 Hz)</summary>
+      <description>Gain for 31 Hz frequency band in dB</description>
+    </key>
+
+    <key name="equalizer-band1" type="d">
+      <default>0.0</default>
+      <range min="-24.0" max="12.0"/>
+      <summary>Equalizer Band 1 (62 Hz)</summary>
+      <description>Gain for 62 Hz frequency band in dB</description>
+    </key>
+
+    <key name="equalizer-band2" type="d">
+      <default>0.0</default>
+      <range min="-24.0" max="12.0"/>
+      <summary>Equalizer Band 2 (125 Hz)</summary>
+      <description>Gain for 125 Hz frequency band in dB</description>
+    </key>
+
+    <key name="equalizer-band3" type="d">
+      <default>0.0</default>
+      <range min="-24.0" max="12.0"/>
+      <summary>Equalizer Band 3 (250 Hz)</summary>
+      <description>Gain for 250 Hz frequency band in dB</description>
+    </key>
+
+    <key name="equalizer-band4" type="d">
+      <default>0.0</default>
+      <range min="-24.0" max="12.0"/>
+      <summary>Equalizer Band 4 (500 Hz)</summary>
+      <description>Gain for 500 Hz frequency band in dB</description>
+    </key>
+
+    <key name="equalizer-band5" type="d">
+      <default>0.0</default>
+      <range min="-24.0" max="12.0"/>
+      <summary>Equalizer Band 5 (1 kHz)</summary>
+      <description>Gain for 1 kHz frequency band in dB</description>
+    </key>
+
+    <key name="equalizer-band6" type="d">
+      <default>0.0</default>
+      <range min="-24.0" max="12.0"/>
+      <summary>Equalizer Band 6 (2 kHz)</summary>
+      <description>Gain for 2 kHz frequency band in dB</description>
+    </key>
+
+    <key name="equalizer-band7" type="d">
+      <default>0.0</default>
+      <range min="-24.0" max="12.0"/>
+      <summary>Equalizer Band 7 (4 kHz)</summary>
+      <description>Gain for 4 kHz frequency band in dB</description>
+    </key>
+
+    <key name="equalizer-band8" type="d">
+      <default>0.0</default>
+      <range min="-24.0" max="12.0"/>
+      <summary>Equalizer Band 8 (8 kHz)</summary>
+      <description>Gain for 8 kHz frequency band in dB</description>
+    </key>
+
+    <key name="equalizer-band9" type="d">
+      <default>0.0</default>
+      <range min="-24.0" max="12.0"/>
+      <summary>Equalizer Band 9 (16 kHz)</summary>
+      <description>Gain for 16 kHz frequency band in dB</description>
+    </key>
+
+    <!-- Recording Settings -->
+    <key name="recording-format" type="s">
+      <default>"mp3"</default>
+      <summary>Recording Format</summary>
+      <description>Audio format for recordings (mp3, flac, ogg, wav)</description>
+    </key>
+
+    <key name="recording-directory" type="s">
+      <default>""</default>
+      <summary>Recording Directory</summary>
+      <description>Directory path for saving recordings (empty = ~/Music/Recordings)</description>
+    </key>
+
+    <key name="recording-filename-template" type="s">
+      <default>"{station}_{date}_{time}"</default>
+      <summary>Recording Filename Template</summary>
+      <description>Template for recording filenames (variables: {station}, {date}, {time}, {title}, {artist})</description>
+    </key>
+
+    <key name="recording-auto-start" type="b">
+      <default>false</default>
+      <summary>Auto-Start Recording</summary>
+      <description>Automatically start recording when playback begins</description>
+    </key>
+
+    <!-- Discovery Settings -->
+    <key name="quality-filter-min-bitrate" type="i">
+      <default>0</default>
+      <summary>Minimum Bitrate Filter</summary>
+      <description>Minimum bitrate for station filtering in kbps (0 = no filter)</description>
+    </key>
+
+    <key name="default-country" type="s">
+      <default>""</default>
+      <summary>Default Country Filter</summary>
+      <description>Default country for station filtering (empty = all countries)</description>
+    </key>
+
+    <key name="language-filter" type="as">
+      <default>[]</default>
+      <summary>Language Filter</summary>
+      <description>List of languages to filter stations by</description>
+    </key>
+
+    <key name="order-by" type="s">
+      <default>"votes"</default>
+      <summary>Order By</summary>
+      <description>Default ordering for station lists (votes, clickcount, bitrate, name)</description>
+    </key>
+
+    <key name="show-explicit-content" type="b">
+      <default>true</default>
+      <summary>Show Explicit Content</summary>
+      <description>Include stations with potentially explicit content</description>
+    </key>
+
+    <!-- UI Settings -->
+    <key name="show-spectrum" type="b">
+      <default>true</default>
+      <summary>Show Spectrum Visualizer</summary>
+      <description>Display audio spectrum visualization</description>
+    </key>
+
+    <key name="spectrum-style" type="s">
+      <default>"bars"</default>
+      <summary>Spectrum Visualization Style</summary>
+      <description>Visual style for spectrum (bars, line, gradient)</description>
+    </key>
+
+    <key name="current-page" type="s">
+      <default>"discover"</default>
+      <summary>Current Page</summary>
+      <description>Currently selected page (discover, favorites, history, now-playing)</description>
+    </key>
+
+    <!-- Sleep Timer Settings -->
+    <key name="sleep-timer-enabled" type="b">
+      <default>false</default>
+      <summary>Sleep Timer Enabled</summary>
+      <description>Whether the sleep timer is currently active</description>
+    </key>
+
+    <key name="sleep-timer-minutes" type="i">
+      <default>30</default>
+      <summary>Sleep Timer Duration</summary>
+      <description>Sleep timer duration in minutes</description>
+    </key>
+
+    <key name="sleep-timer-action" type="s">
+      <default>"stop"</default>
+      <summary>Sleep Timer Action</summary>
+      <description>Action to perform when timer expires (stop, pause, quit)</description>
+    </key>
+
+  </schema>
+</schemalist>

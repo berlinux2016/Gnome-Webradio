@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.webradio.Player</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0+</project_license>
+  <name>WebRadio Player</name>
+  <summary>Modern Internet Radio Player for Linux</summary>
+
+  <description>
+    <p>
+      WebRadio Player is a modern, feature-rich internet radio player for Linux
+      desktop environments. It provides access to thousands of radio stations
+      from around the world through the Radio Browser API.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Real-time search-as-you-type for over 30,000 stations</li>
+      <li>Detailed "Now Playing" information dialog</li>
+      <li>Minimize to system tray while playing</li>
+      <li>MPRIS2 integration for system media controls (e.g., GNOME)</li>
+      <li>Manage your list of favorite stations</li>
+      <li>Displays station logos and current track metadata</li>
+      <li>Modern GTK4 / libadwaita user interface</li>
+      <li>High-quality audio streaming via GStreamer</li>
+    </ul>
+  </description>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/berlinux2016/Gnome-Webradio/main/screenshots/webradio-main.png</image>
+      <caption>Main window with station browser</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/berlinux2016/Gnome-Webradio/main/screenshots/webradio-now-playing.png</image>
+      <caption>Now Playing Info Dialog</caption>
+    </screenshot>
+  </screenshots>
+
+  <url type="homepage">https://github.com/berlinux2016/Gnome-Webradio</url>
+  <url type="bugtracker">https://github.com/berlinux2016/Gnome-Webradio/issues</url>
+  <launchable type="desktop-id">org.webradio.Player.desktop</launchable>
+
+  <provides>
+    <binary>webradio</binary>
+  </provides>
+
+  <releases>
+    <release version="1.1.0" date="2024-12-18">
+      <description>
+        <p>New features and improvements:</p>
+        <ul>
+          <li>Real-time search-as-you-type</li>
+          <li>"Now Playing" information dialog</li>
+          <li>Minimize to tray functionality</li>
+          <li>MPRIS2 integration for system media controls</li>
+        </ul>
+      </description>
+    </release>
+    <release version="1.0.2" date="2024-12-18">
+      <description>
+        <p>Major UI overhaul for the 'Now Playing' bar:</p>
+        <ul>
+          <li>Added 64x64 station logo.</li>
+          <li>Redesigned layout with three lines for station, track, and technical info.</li>
+          <li>Asynchronous logo loading to keep the UI responsive.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="1.0.1" date="2024-12-17">
+      <description>
+        <p>Critical bug fixes and stability improvements:</p>
+        <ul>
+          <li>Fixed the 'white window' bug on startup.</li>
+          <li>Implemented a new, more compatible system tray icon.</li>
+          <li>Reduced GStreamer debug message spam.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="1.0.0" date="2024-12-16">
+      <description>
+        <p>Initial release with core features like station browsing, favorites, and GStreamer playback.</p>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1" />
+</component>

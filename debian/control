@@ -1,0 +1,41 @@
+Source: webradio-player
+Section: sound
+Priority: optional
+Maintainer: WebRadio Team <info@webradio.app>
+Build-Depends: debhelper-compat (= 13),
+               dh-python,
+               python3-all,
+               python3-setuptools,
+Standards-Version: 4.6.0
+Homepage: https://github.com/webradio/webradio-player
+Vcs-Git: https://github.com/webradio/webradio-player.git
+Vcs-Browser: https://github.com/webradio/webradio-player
+
+Package: webradio-player
+Architecture: all
+Depends: ${python3:Depends},
+         ${misc:Depends},
+         python3 (>= 3.10),
+         python3-gi (>= 3.42.0),
+         gir1.2-gtk-4.0,
+         gir1.2-adw-1,
+         gir1.2-gstreamer-1.0,
+         gstreamer1.0-plugins-base,
+         gstreamer1.0-plugins-good,
+         gstreamer1.0-plugins-bad,
+         python3-requests (>= 2.28.0),
+         python3-pil (>= 9.0.0),
+Description: Modern Internet Radio Player for Linux
+ WebRadio Player is a modern, feature-rich internet radio player for Linux
+ desktop environments. It provides access to thousands of radio stations
+ from around the world through the Radio Browser API.
+ .
+ Features:
+  * Browse and search thousands of internet radio stations
+  * Wildcard search support for finding stations
+  * Create and manage your favorite stations
+  * Display station logos and metadata
+  * System tray integration for Cinnamon/GNOME
+  * Modern GTK4/Libadwaita interface
+  * Filter by genre, country, and more
+  * High-quality audio streaming via GStreamer

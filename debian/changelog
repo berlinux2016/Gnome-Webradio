@@ -1,0 +1,10 @@
+webradio-player (1.0.0-1) unstable; urgency=medium
+
+  * Initial release
+  * Browse and search internet radio stations
+  * Favorites management
+  * Station logo display
+  * System tray integration
+  * GTK4/Libadwaita interface
+
+ -- WebRadio Team <info@webradio.app>  Wed, 18 Dec 2025 12:00:00 +0100

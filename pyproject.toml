@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "webradio-player"
+version = "1.1.0"
+description = "Modern GTK4 Web Radio Player for Linux"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "GPL-3.0"}
+authors = [
+    {name = "DaHooL", email = "089mobil@gmail.com"}
+]
+keywords = ["radio", "streaming", "gtk4", "gnome", "audio"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: POSIX :: Linux",
+]
+
+dependencies = [
+    "pygobject>=3.42.0",
+    "requests>=2.28.0",
+    "pillow>=9.0.0",
+]
+
+[project.scripts]
+webradio = "webradio.main:main"
+
+[tool.setuptools]
+packages = ["webradio"]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+webradio = ["data/*", "data/ui/*", "data/icons/*"]

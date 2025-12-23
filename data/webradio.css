@@ -1,0 +1,161 @@
+/* WebRadio Player - GNOME Default Theme CSS */
+
+/* ============================================
+   USE GNOME SYSTEM COLORS
+   ============================================ */
+
+/* Let GNOME/Adwaita handle all theming automatically */
+
+/* ============================================
+   SIDEBAR STYLING
+   ============================================ */
+
+.sidebar {
+    background-color: @sidebar_bg_color;
+    border-right: 1px solid @borders;
+}
+
+.sidebar label {
+    color: @window_fg_color;
+}
+
+/* Sidebar section labels */
+.sidebar-section-label {
+    color: @insensitive_fg_color;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+}
+
+/* Sidebar navigation buttons */
+.sidebar button {
+    border-radius: 6px;
+    border: none;
+    transition: all 150ms ease;
+    margin: 2px 8px;
+}
+
+.sidebar button:hover {
+    background-color: @view_hover_bg_color;
+}
+
+.sidebar button:checked {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+    font-weight: bold;
+}
+
+.sidebar button:checked label {
+    color: @accent_fg_color;
+}
+
+.sidebar button:checked image {
+    color: @accent_fg_color;
+}
+
+/* ============================================
+   CONTENT AREA
+   ============================================ */
+
+.content-page {
+    background-color: @view_bg_color;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+button.pill {
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 13px;
+    transition: all 100ms ease;
+}
+
+button.pill:hover {
+    transform: scale(1.02);
+}
+
+/* ============================================
+   PLAYER BAR
+   ============================================ */
+
+.player-bar {
+    background-color: @headerbar_bg_color;
+    border-top: 1px solid @borders;
+    padding: 0;
+}
+
+/* ============================================
+   LISTS & ROWS
+   ============================================ */
+
+row {
+    border-radius: 6px;
+    transition: background-color 100ms ease;
+}
+
+row:hover {
+    background-color: @view_hover_bg_color;
+}
+
+/* ============================================
+   RECORDING INDICATOR
+   ============================================ */
+
+.error {
+    color: @error_color;
+    font-weight: bold;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1.0;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* ============================================
+   SCROLLBARS
+   ============================================ */
+
+scrollbar slider {
+    border-radius: 8px;
+    min-width: 8px;
+    min-height: 40px;
+}
+
+/* ============================================
+   SEARCH ENTRY
+   ============================================ */
+
+entry {
+    border-radius: 8px;
+}
+
+/* ============================================
+   SEPARATORS
+   ============================================ */
+
+separator {
+    background-color: @borders;
+}
+
+/* ============================================
+   SPACING HELPERS
+   ============================================ */
+
+.page-padding {
+    margin: 18px;
+}
+
+.component-spacing {
+    margin: 12px;
+}
+
+.tight-spacing {
+    margin: 6px;
+}
