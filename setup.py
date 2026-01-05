@@ -10,13 +10,13 @@ def read_file(filename):
 
 setup(
     name='webradio-player',
-    version='1.1.0',
+    version='1.2.0',
     description='Modern GTK4 Web Radio Player for Linux',
     long_description=read_file('README.md') if os.path.exists('README.md') else '',
     long_description_content_type='text/markdown',
     author='DaHooL',
     author_email='089mobil@gmail.com',
-    url='https://github.com/dahool/webradio-player',
+    url='https://github.com/berlinux2016/Gnome-Webradio',
     license='GPL-3.0',
     packages=find_packages('src'),
     package_dir={'': 'src'},
@@ -38,6 +38,7 @@ setup(
         ('share/icons/hicolor/256x256/apps', ['data/icons/org.webradio.Player.png']),
         ('share/metainfo', ['data/org.webradio.Player.appdata.xml']),
         ('share/glib-2.0/schemas', ['data/org.webradio.Player.gschema.xml']),
+        ('share/webradio', ['data/webradio.css']),
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

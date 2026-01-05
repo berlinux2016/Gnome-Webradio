@@ -38,6 +38,14 @@ class AudioPlayer(GObject.Object):
         self._volume = 1.0
         self._tags = {}
 
+        # Auto-reconnect settings
+        self._auto_reconnect = True
+        self._reconnect_timeout_id = None
+        self._reconnect_attempts = 0
+        self._max_reconnect_attempts = 15  # Increased from 5 to 15 for network changes
+        self._base_reconnect_delay = 500  # Start with 500ms for fast resume
+        self._max_reconnect_delay = 10000  # Max 10 seconds between attempts
+
         # Create simple playbin pipeline
         self.pipeline = Gst.ElementFactory.make('playbin', 'player')
         if not self.pipeline:
@@ -81,6 +89,9 @@ class AudioPlayer(GObject.Object):
         self.current_uri = uri
         self.current_station = station_info
 
+        # Reset reconnect counter on manual play
+        self._reconnect_attempts = 0
+
         # Set URI
         self.pipeline.set_property('uri', uri)
 
@@ -109,6 +120,9 @@ class AudioPlayer(GObject.Object):
 
     def stop(self):
         """Stop playback"""
+        # Cancel any pending reconnect
+        self._cancel_reconnect()
+
         if self.state != PlayerState.STOPPED:
             self.pipeline.set_state(Gst.State.NULL)
             self._set_state(PlayerState.STOPPED)
@@ -148,6 +162,11 @@ class AudioPlayer(GObject.Object):
         """Get current stream tags/metadata"""
         return self._tags.copy()
 
+    def set_auto_reconnect(self, enabled: bool):
+        """Enable or disable automatic reconnection on network errors"""
+        self._auto_reconnect = enabled
+        print(f"Auto-reconnect {'enabled' if enabled else 'disabled'}")
+
     def _set_state(self, new_state: PlayerState):
         """Update player state and emit signal"""
         if self.state != new_state:
@@ -168,8 +187,38 @@ class AudioPlayer(GObject.Object):
             print(f"ERROR: {error_msg}")
             if debug:
                 print(f"DEBUG: {debug}")
-            self.emit('error', error_msg)
-            self.stop()
+
+            # Try to reconnect automatically if enabled and we have a URI
+            if self._auto_reconnect and self.current_uri and self._reconnect_attempts < self._max_reconnect_attempts:
+                self._reconnect_attempts += 1
+
+                # Calculate delay to show in message
+                if self._reconnect_attempts == 1:
+                    delay_msg = "sofort"
+                elif self._reconnect_attempts == 2:
+                    delay_msg = "in 0.5s"
+                else:
+                    delay_sec = min(
+                        self._base_reconnect_delay * (2 ** (self._reconnect_attempts - 2)) / 1000,
+                        self._max_reconnect_delay / 1000
+                    )
+                    delay_msg = f"in {delay_sec:.1f}s"
+
+                print(f"Network error detected. Attempting reconnect {self._reconnect_attempts}/{self._max_reconnect_attempts} {delay_msg}...")
+                self.emit('error', f"Verbindung unterbrochen. Reconnect {delay_msg}... ({self._reconnect_attempts}/{self._max_reconnect_attempts})")
+
+                # Set to NULL state first
+                self.pipeline.set_state(Gst.State.NULL)
+
+                # Schedule reconnect
+                self._schedule_reconnect()
+            else:
+                # No reconnect - emit error and stop
+                if self._reconnect_attempts >= self._max_reconnect_attempts:
+                    self.emit('error', f"Failed to reconnect after {self._max_reconnect_attempts} attempts")
+                else:
+                    self.emit('error', error_msg)
+                self.stop()
 
         elif t == Gst.MessageType.WARNING:
             warn, debug = message.parse_warning()
@@ -219,8 +268,70 @@ class AudioPlayer(GObject.Object):
 
         return True
 
+    def _schedule_reconnect(self):
+        """Schedule a reconnect attempt with exponential backoff"""
+        # Cancel any existing reconnect timer
+        self._cancel_reconnect()
+
+        # Calculate delay with exponential backoff
+        # First attempt: immediate (50ms)
+        # Second attempt: 500ms
+        # Then exponentially increase: 1s, 2s, 4s, 8s, up to max 10s
+        if self._reconnect_attempts == 1:
+            delay = 50  # First reconnect almost immediate for fast resume
+        elif self._reconnect_attempts == 2:
+            delay = self._base_reconnect_delay  # 500ms
+        else:
+            # Exponential backoff: 500ms * 2^(attempt-2)
+            delay = min(
+                self._base_reconnect_delay * (2 ** (self._reconnect_attempts - 2)),
+                self._max_reconnect_delay
+            )
+
+        print(f"Scheduling reconnect attempt {self._reconnect_attempts}/{self._max_reconnect_attempts} in {delay}ms")
+
+        # Schedule new reconnect
+        self._reconnect_timeout_id = GLib.timeout_add(
+            delay,
+            self._do_reconnect
+        )
+
+    def _cancel_reconnect(self):
+        """Cancel pending reconnect"""
+        if self._reconnect_timeout_id:
+            GLib.source_remove(self._reconnect_timeout_id)
+            self._reconnect_timeout_id = None
+
+    def _do_reconnect(self):
+        """Perform the actual reconnect"""
+        self._reconnect_timeout_id = None
+
+        if not self.current_uri:
+            return False
+
+        print(f"Reconnecting to: {self.current_uri}")
+
+        # Set URI again
+        self.pipeline.set_property('uri', self.current_uri)
+
+        # Try to start playback
+        result = self.pipeline.set_state(Gst.State.PLAYING)
+
+        if result != Gst.StateChangeReturn.FAILURE:
+            self._set_state(PlayerState.PLAYING)
+            print("Reconnect successful!")
+            # Reset counter on successful reconnect
+            self._reconnect_attempts = 0
+        else:
+            print("Reconnect failed")
+
+        return False  # Don't repeat the timeout
+
     def cleanup(self):
         """Clean up resources"""
+        # Cancel any pending reconnects
+        self._cancel_reconnect()
+
         self.stop()
 
         if self.bus:

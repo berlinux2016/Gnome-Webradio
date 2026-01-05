@@ -1,5 +1,5 @@
 Name:           webradio-player
-Version:        1.1.0
+Version:        1.2.3
 Release:        1%{?dist}
 Summary:        Modern Internet Radio Player for Linux
 
@@ -81,6 +81,7 @@ appstream-util validate-relax --nonet %{buildroot}%{_datadir}/metainfo/org.webra
 %{_datadir}/icons/hicolor/256x256/apps/org.webradio.Player.png
 %{_datadir}/metainfo/org.webradio.Player.appdata.xml
 %{_datadir}/glib-2.0/schemas/org.webradio.Player.gschema.xml
+%{_datadir}/webradio/webradio.css
 
 %post
 /usr/bin/glib-compile-schemas %{_datadir}/glib-2.0/schemas &>/dev/null || :
@@ -91,6 +92,37 @@ appstream-util validate-relax --nonet %{buildroot}%{_datadir}/metainfo/org.webra
 /usr/bin/gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
 
 %changelog
+* Sun Jan 05 2025 DaHooL <089mobil@gmail.com> - 1.2.3-1
+- Redesigned UI to match Nautilus/GNOME Files style
+- Nautilus-style gray sidebar with proper GNOME colors
+- Updated typography with Cantarell font and proper sizes
+- Improved button styling (6px border-radius, proper hover effects)
+- Enhanced list rows with subtle hover effects matching Nautilus
+- Smoother animations with cubic-bezier transitions
+- Better visual hierarchy with proper font weights
+
+* Sun Jan 05 2025 DaHooL <089mobil@gmail.com> - 1.2.2-1
+- Improved automatic reconnection for network changes (VPN, WiFi switching)
+- First reconnect attempt now happens almost immediately (50ms) for fast resume
+- Exponential backoff: 50ms, 500ms, 1s, 2s, 4s, 8s, then 10s intervals
+- Increased max reconnect attempts from 5 to 15 for better reliability
+- German reconnection status messages
+
+* Sun Jan 05 2025 DaHooL <089mobil@gmail.com> - 1.2.1-1
+- Prevent system suspend/standby while audio stream is playing
+- Added GNOME Session Manager integration to inhibit idle/suspend during playback
+
+* Sat Jan 04 2025 DaHooL <089mobil@gmail.com> - 1.2.0-1
+- Fixed About dialog icon display
+- Renamed "YouTube Music" to "YouTube Search" for trademark compliance
+- Automatic stream reconnection on network changes (VPN connect/disconnect)
+- Fixed window not showing when clicking app icon in Dash while running in background
+- Improved MPRIS2 media controls reliability
+- Fixed station name not showing in player bar when metadata updates
+- More compact homepage layout
+- Updated GitHub repository URLs
+- Updated application ID to org.webradio.Player throughout
+
 * Wed Dec 18 2024 DaHooL <089mobil@gmail.com> - 1.1.0-1
 - Real-time search while typing (debounced, 500ms delay)
 - Now Playing info dialog with detailed track information

@@ -1,4 +1,65 @@
-/* WebRadio Player - GNOME Default Theme CSS */
+/* WebRadio Player - Nautilus-Style Theme CSS */
+
+/* ============================================
+   TYPOGRAPHY - Nautilus Style
+   ============================================ */
+
+/* Use standard GNOME typography matching Nautilus */
+window {
+    font-family: "Cantarell", system-ui, sans-serif;
+    font-size: 10pt;
+    background-color: @view_bg_color;
+}
+
+/* Make all main areas use consistent background */
+box {
+    background-color: transparent;
+}
+
+/* Headings */
+.title-1 {
+    font-size: 20pt;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+}
+
+.title-2 {
+    font-size: 15pt;
+    font-weight: 700;
+}
+
+.title-3 {
+    font-size: 12pt;
+    font-weight: 600;
+}
+
+.title-4 {
+    font-size: 11pt;
+    font-weight: 600;
+}
+
+.heading {
+    font-size: 10pt;
+    font-weight: 700;
+}
+
+.body {
+    font-size: 10pt;
+    font-weight: 400;
+}
+
+.caption {
+    font-size: 9pt;
+    font-weight: 400;
+    opacity: 0.55;
+}
+
+.caption-heading {
+    font-size: 9pt;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
 
 /* ============================================
    USE GNOME SYSTEM COLORS
@@ -7,96 +68,197 @@
 /* Let GNOME/Adwaita handle all theming automatically */
 
 /* ============================================
-   SIDEBAR STYLING
+   SIDEBAR STYLING - Nautilus Style
    ============================================ */
 
 .sidebar {
+    /* Nautilus uses a darker gray sidebar background */
     background-color: @sidebar_bg_color;
-    border-right: 1px solid @borders;
+    border-right: 1px solid @sidebar_border_color;
 }
 
 .sidebar label {
-    color: @window_fg_color;
+    color: @sidebar_fg_color;
 }
 
-/* Sidebar section labels */
+/* Sidebar section labels - Nautilus style */
 .sidebar-section-label {
-    color: @insensitive_fg_color;
-    font-weight: 700;
-    font-size: 11px;
-    letter-spacing: 0.5px;
+    color: @dim_label_color;
+    font-weight: 600;
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    opacity: 0.55;
 }
 
-/* Sidebar navigation buttons */
+/* Sidebar navigation buttons - Nautilus style */
 .sidebar button {
-    border-radius: 6px;
+    border-radius: 8px;
     border: none;
-    transition: all 150ms ease;
-    margin: 2px 8px;
+    background: transparent;
+    transition: all 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    margin: 2px 6px;
+    padding: 8px 12px;
+    min-height: 32px;
+}
+
+.sidebar button label {
+    font-size: 10pt;
+    font-weight: 400;
 }
 
 .sidebar button:hover {
-    background-color: @view_hover_bg_color;
+    background-color: @sidebar_shade_color;
+}
+
+.sidebar button:active {
+    background-color: alpha(@accent_bg_color, 0.15);
 }
 
 .sidebar button:checked {
     background-color: @accent_bg_color;
     color: @accent_fg_color;
-    font-weight: bold;
+    font-weight: 500;
 }
 
 .sidebar button:checked label {
     color: @accent_fg_color;
+    font-weight: 500;
 }
 
 .sidebar button:checked image {
     color: @accent_fg_color;
+    -gtk-icon-effect: none;
 }
 
 /* ============================================
-   CONTENT AREA
+   CONTENT AREA - Nautilus Style
    ============================================ */
 
 .content-page {
     background-color: @view_bg_color;
+    padding: 0;
+}
+
+/* Page headers - same color as content like Nautilus */
+.page-header {
+    background-color: @view_bg_color;
+    border-bottom: 1px solid @borders;
+    padding: 12px 18px;
+}
+
+/* Header bar - make it match the content area */
+headerbar {
+    background-color: @view_bg_color;
+    border-bottom: 1px solid @borders;
+}
+
+/* Lists and content views */
+list, listview {
+    background-color: transparent;
+    border-radius: 0;
+}
+
+/* Cards - transparent/subtle background like Nautilus file icons */
+.card {
+    background-color: transparent;
+    border: 1px solid alpha(@borders, 0.15);
+    border-radius: 12px;
+    padding: 18px;
+    transition: all 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.card:hover {
+    background-color: alpha(@accent_bg_color, 0.05);
+    border-color: alpha(@borders, 0.25);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 /* ============================================
-   BUTTONS
+   BUTTONS - Nautilus Style
    ============================================ */
 
+/* Primary/Pill buttons */
 button.pill {
-    border-radius: 20px;
-    padding: 6px 16px;
-    font-size: 13px;
-    transition: all 100ms ease;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 10pt;
+    font-weight: 500;
+    transition: all 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    min-height: 32px;
 }
 
 button.pill:hover {
-    transform: scale(1.02);
+    filter: brightness(1.05);
+}
+
+button.pill:active {
+    filter: brightness(0.95);
+}
+
+/* Suggested action buttons - like Nautilus */
+button.suggested-action {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+    font-weight: 600;
+}
+
+/* Flat buttons */
+button.flat {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+button.flat:hover {
+    background-color: alpha(@accent_bg_color, 0.08);
 }
 
 /* ============================================
-   PLAYER BAR
+   PLAYER BAR - Nautilus Style
    ============================================ */
 
 .player-bar {
-    background-color: @headerbar_bg_color;
+    background-color: @view_bg_color;
     border-top: 1px solid @borders;
     padding: 0;
 }
 
 /* ============================================
-   LISTS & ROWS
+   LISTS & ROWS - Nautilus Style
    ============================================ */
 
 row {
-    border-radius: 6px;
-    transition: background-color 100ms ease;
+    border-radius: 0;
+    transition: background-color 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    padding: 6px 12px;
+    min-height: 48px;
 }
 
 row:hover {
-    background-color: @view_hover_bg_color;
+    background-color: alpha(@accent_bg_color, 0.08);
+}
+
+row:selected {
+    background-color: alpha(@accent_bg_color, 0.12);
+}
+
+row:selected:hover {
+    background-color: alpha(@accent_bg_color, 0.15);
+}
+
+/* List box styling */
+listbox {
+    background-color: transparent;
+    border-radius: 0;
+}
+
+listbox > row {
+    border-bottom: 1px solid alpha(@borders, 0.3);
+}
+
+listbox > row:last-child {
+    border-bottom: none;
 }
 
 /* ============================================

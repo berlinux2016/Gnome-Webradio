@@ -8,6 +8,8 @@ import dbus
 import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
 
+from .player import PlayerState
+
 
 class MPRISInterface(dbus.service.Object):
     """
@@ -232,18 +234,46 @@ class MPRISInterface(dbus.service.Object):
     def PlayPause(self):
         """Toggle play/pause"""
         print("MPRIS: PlayPause")
-        if self.player.is_playing():
-            GLib.idle_add(self.player.pause)
-        else:
-            GLib.idle_add(self.player.resume)
-        GLib.idle_add(self.update_properties)
+
+        def do_playpause():
+            if self.player.is_playing():
+                self.player.pause()
+            else:
+                # If paused, just resume
+                if self.player.state == PlayerState.PAUSED:
+                    self.player.resume()
+                # If stopped or error, restart the stream
+                elif self.player.current_uri and self.player.current_station:
+                    print(f"MPRIS: Restarting stream {self.player.current_uri}")
+                    self.player.play(self.player.current_uri, self.player.current_station)
+                # Otherwise try to resume anyway
+                else:
+                    self.player.resume()
+            self.update_properties()
+            return False
+
+        GLib.idle_add(do_playpause)
 
     @dbus.service.method(MPRIS_PLAYER_IFACE)
     def Play(self):
-        """Resume playback"""
+        """Resume playback or restart stream"""
         print("MPRIS: Play")
-        GLib.idle_add(self.player.resume)
-        GLib.idle_add(self.update_properties)
+
+        def do_play():
+            # If paused, just resume
+            if self.player.state == PlayerState.PAUSED:
+                self.player.resume()
+            # If stopped or error, restart the stream
+            elif self.player.current_uri and self.player.current_station:
+                print(f"MPRIS: Restarting stream {self.player.current_uri}")
+                self.player.play(self.player.current_uri, self.player.current_station)
+            # Otherwise try to resume anyway
+            else:
+                self.player.resume()
+            self.update_properties()
+            return False
+
+        GLib.idle_add(do_play)
 
     @dbus.service.method(MPRIS_PLAYER_IFACE)
     def Stop(self):

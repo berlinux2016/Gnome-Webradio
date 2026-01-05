@@ -52,6 +52,10 @@ class WebRadioApplication(Adw.Application):
         win = self.props.active_window
         if not win:
             win = WebRadioWindow(application=self)
+        else:
+            # If window exists but is hidden, show it
+            if not win.is_visible():
+                win.set_visible(True)
         win.present()
 
     def _setup_icon_theme(self):
@@ -124,6 +128,16 @@ class WebRadioApplication(Adw.Application):
         if shortcuts:
             self.set_accels_for_action(f'app.{name}', shortcuts)
 
+    def do_shutdown(self):
+        """Called when the application is shutting down"""
+        # Cleanup inhibitor if window exists
+        win = self.props.active_window
+        if win and hasattr(win, 'session_inhibitor'):
+            win.session_inhibitor.cleanup()
+
+        # Call parent shutdown
+        Adw.Application.do_shutdown(self)
+
     def on_quit(self, action, param):
         """Quit the application"""
         self.quit()
@@ -133,14 +147,14 @@ class WebRadioApplication(Adw.Application):
         about = Adw.AboutWindow(
             transient_for=self.props.active_window,
             application_name='WebRadio Player',
-            application_icon='webradio',
+            application_icon='org.webradio.Player',
             developer_name='DaHooL',
-            version='1.1.0',
+            version='1.2.3',
             developers=['DaHooL <089mobil@gmail.com>'],
-            copyright='© 2025 DaHooL',
+            copyright='© 2024 DaHooL',
             license_type=Gtk.License.GPL_3_0,
-            website='https://github.com/dahool/webradio-player',
-            issue_url='https://github.com/dahool/webradio-player/issues',
+            website='https://github.com/berlinux2016/Gnome-Webradio',
+            issue_url='https://github.com/berlinux2016/Gnome-Webradio/issues',
         )
         about.present()
 

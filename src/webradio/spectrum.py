@@ -93,8 +93,9 @@ class SpectrumVisualizer(Gtk.DrawingArea):
         self.queue_draw()
 
     def set_style(self, style: str):
-        """Set visualization style (bars, line, gradient)"""
-        if style in ['bars', 'line', 'gradient']:
+        """Set visualization style"""
+        valid_styles = ['bars', 'line', 'gradient', 'wave', 'dots', 'mirror']
+        if style in valid_styles:
             self.style = style
             self.queue_draw()
 
@@ -126,6 +127,14 @@ class SpectrumVisualizer(Gtk.DrawingArea):
             self._draw_bars(cr, width, height)
         elif self.style == 'line':
             self._draw_line(cr, width, height)
+        elif self.style == 'gradient':
+            self._draw_gradient(cr, width, height)
+        elif self.style == 'wave':
+            self._draw_wave(cr, width, height)
+        elif self.style == 'dots':
+            self._draw_dots(cr, width, height)
+        elif self.style == 'mirror':
+            self._draw_mirror(cr, width, height)
 
     def _draw_bars(self, cr, width, height):
         """Draw bar-style spectrum with disco/rainbow effect"""
@@ -263,6 +272,132 @@ class SpectrumVisualizer(Gtk.DrawingArea):
             cr.close_path()
 
             cr.set_source_rgba(r, g, b, 0.2)
+            cr.fill()
+
+    def _draw_gradient(self, cr, width, height):
+        """Draw gradient-filled spectrum"""
+        if not self.smoothed_magnitudes:
+            return
+
+        step = width / (self.num_bands - 1)
+
+        # Create path for filled area
+        cr.move_to(0, height)
+
+        for i in range(self.num_bands):
+            x = i * step
+            y = height - (self.smoothed_magnitudes[i] * height)
+            cr.line_to(x, y)
+
+        cr.line_to(width, height)
+        cr.close_path()
+
+        # Create vertical gradient
+        gradient = cairo.LinearGradient(0, 0, 0, height)
+        gradient.add_color_stop_rgba(0, 0.2, 0.6, 1.0, 0.9)  # Top: bright blue
+        gradient.add_color_stop_rgba(0.5, 0.4, 0.2, 0.9, 0.7)  # Middle: purple
+        gradient.add_color_stop_rgba(1, 0.8, 0.1, 0.3, 0.5)  # Bottom: red
+
+        cr.set_source(gradient)
+        cr.fill_preserve()
+
+        # Add outline
+        cr.set_line_width(2.0)
+        cr.set_source_rgba(1.0, 1.0, 1.0, 0.6)
+        cr.stroke()
+
+    def _draw_wave(self, cr, width, height):
+        """Draw smooth wave visualization"""
+        if not self.smoothed_magnitudes:
+            return
+
+        step = width / (self.num_bands - 1)
+
+        # Draw smooth bezier curve through points
+        for layer in range(3):
+            alpha = 0.4 - (layer * 0.1)
+            offset = layer * 10
+
+            cr.move_to(0, height)
+
+            # Create smooth curve
+            for i in range(self.num_bands):
+                x = i * step
+                y = height - (self.smoothed_magnitudes[i] * height) - offset
+
+                if i == 0:
+                    cr.move_to(x, y)
+                else:
+                    # Bezier curve for smoothness
+                    prev_x = (i - 1) * step
+                    prev_y = height - (self.smoothed_magnitudes[i-1] * height) - offset
+                    cp_x = (prev_x + x) / 2
+                    cr.curve_to(cp_x, prev_y, cp_x, y, x, y)
+
+            cr.line_to(width, height)
+            cr.close_path()
+
+            hue = 200 + (layer * 30)
+            r, g, b = self._hsv_to_rgb(hue, 0.7, 0.8)
+            cr.set_source_rgba(r, g, b, alpha)
+            cr.fill()
+
+    def _draw_dots(self, cr, width, height):
+        """Draw dots visualization"""
+        if not self.smoothed_magnitudes:
+            return
+
+        step = width / self.num_bands
+
+        for i, magnitude in enumerate(self.smoothed_magnitudes):
+            x = i * step + step / 2
+
+            # Multiple dots per column
+            num_dots = int(magnitude * 20)
+            dot_spacing = height / 20
+
+            hue = (i / self.num_bands) * 360
+            r, g, b = self._hsv_to_rgb(hue, 0.8, 0.9)
+
+            for j in range(num_dots):
+                y = height - (j * dot_spacing) - dot_spacing / 2
+                radius = 3 + (magnitude * 2)
+
+                # Glow
+                cr.arc(x, y, radius + 2, 0, 2 * math.pi)
+                cr.set_source_rgba(r, g, b, 0.3)
+                cr.fill()
+
+                # Dot
+                cr.arc(x, y, radius, 0, 2 * math.pi)
+                cr.set_source_rgba(r, g, b, 0.9)
+                cr.fill()
+
+    def _draw_mirror(self, cr, width, height):
+        """Draw mirrored bars visualization"""
+        if not self.smoothed_magnitudes:
+            return
+
+        bar_width = (width - (self.num_bands - 1) * self.bar_spacing) / self.num_bands
+        mid_height = height / 2
+
+        for i, magnitude in enumerate(self.smoothed_magnitudes):
+            x = i * (bar_width + self.bar_spacing)
+            bar_height = magnitude * mid_height
+
+            hue = (i / self.num_bands) * 360
+            r, g, b = self._hsv_to_rgb(hue, 0.7, 0.9)
+
+            # Top half (upward)
+            cr.set_source_rgba(r, g, b, 0.9)
+            self._draw_rounded_rectangle(cr, x, mid_height - bar_height,
+                                        bar_width, bar_height, 2)
+            cr.fill()
+
+            # Bottom half (downward, mirrored)
+            cr.set_source_rgba(r, g, b, 0.6)
+            self._draw_rounded_rectangle(cr, x, mid_height,
+                                        bar_width, bar_height, 2)
             cr.fill()
 
     def reset(self):

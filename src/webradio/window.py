@@ -20,6 +20,7 @@ from webradio.sleep_timer import SleepTimer
 from webradio.tray_icon import TrayIcon
 from webradio.music_library import MusicLibrary
 from webradio.youtube_music import YouTubeMusic
+from webradio.inhibitor import SessionInhibitor
 from webradio.i18n import _
 
 # MPRIS import with fallback
@@ -248,7 +249,8 @@ class StationRow(Gtk.ListBoxRow):
 
         # Favorite indicator
         if is_favorite:
-            fav_icon = Gtk.Image.new_from_icon_name('emblem-favorite')
+            fav_icon = Gtk.Image.new_from_icon_name('starred')
+            fav_icon.add_css_class('accent')
             box.append(fav_icon)
 
         self.set_child(box)
@@ -367,6 +369,10 @@ class WebRadioWindow(Adw.ApplicationWindow):
         # Connect sleep timer signals
         self.sleep_timer.connect('timer-expired', self._on_sleep_timer_expired)
 
+        # Connect settings signals for live updates
+        if self.settings:
+            self.settings.connect('changed::spectrum-style', self._on_spectrum_style_changed)
+
         print(f"Managers initialized - Equalizer: {self.equalizer_manager is not None}, Recorder: {self.recorder is not None}")
 
         # Setup actions
@@ -391,6 +397,9 @@ class WebRadioWindow(Adw.ApplicationWindow):
 
         # Setup system tray
         self.tray_icon = TrayIcon(self.get_application(), self)
+
+        # Setup session inhibitor (prevent suspend while playing)
+        self.session_inhibitor = SessionInhibitor(self)
 
         # Setup MPRIS (GNOME media controls)
         if MPRIS_AVAILABLE:
@@ -665,6 +674,7 @@ class WebRadioWindow(Adw.ApplicationWindow):
 
         # Search state
         self.search_timeout_id = None
+        self.global_search_timeout_id = None
 
         page.append(search_box)
 
@@ -928,6 +938,11 @@ class WebRadioWindow(Adw.ApplicationWindow):
         self.spectrum_visualizer = SpectrumVisualizer()
         self.spectrum_visualizer.set_size_request(600, 200)
 
+        # Load spectrum style from settings
+        if self.settings:
+            style = self.settings.get_string('spectrum-style')
+            self.spectrum_visualizer.set_style(style)
+
         spectrum_frame.set_child(self.spectrum_visualizer)
         page.append(spectrum_frame)
 
@@ -983,7 +998,7 @@ class WebRadioWindow(Adw.ApplicationWindow):
 
         # Card 1: Top Stations
         top_stations_card = self._create_action_card(
-            'starred-symbolic',
+            'emblem-favorite-symbolic',
             'Top Radiosender',
             'Beliebteste Sender weltweit',
             lambda: self._navigate_to('discover')
@@ -1001,7 +1016,7 @@ class WebRadioWindow(Adw.ApplicationWindow):
 
         # Card 3: Favorites
         favorites_card = self._create_action_card(
-            'emblem-favorite-symbolic',
+            'starred-symbolic',
             'Favoriten',
             f'{len(self.favorites_manager.get_favorites())} gespeichert',
             lambda: self._navigate_to('favorites')
@@ -1192,12 +1207,43 @@ class WebRadioWindow(Adw.ApplicationWindow):
         title.set_xalign(0)
         page.append(title)
 
-        # Search box (to be implemented)
-        status_page = Adw.StatusPage()
-        status_page.set_icon_name('system-search-symbolic')
-        status_page.set_title(_("Search"))
-        status_page.set_description("Search across your library, radio stations, and more")
-        page.append(status_page)
+        # Search box
+        search_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+        self.global_search_entry = Gtk.Entry()
+        self.global_search_entry.set_placeholder_text(_('search_placeholder'))
+        self.global_search_entry.set_hexpand(True)
+        self.global_search_entry.connect('activate', self._on_global_search)
+        self.global_search_entry.connect('changed', self._on_global_search_changed)
+        search_box.append(self.global_search_entry)
+
+        search_btn = Gtk.Button(label=_('search_button'))
+        search_btn.add_css_class('pill')
+        search_btn.add_css_class('suggested-action')
+        search_btn.connect('clicked', self._on_global_search)
+        search_box.append(search_btn)
+
+        page.append(search_box)
+
+        # Results area with scrolled window
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scrolled.set_vexpand(True)
+
+        self.global_search_listbox = Gtk.ListBox()
+        self.global_search_listbox.add_css_class('boxed-list')
+        self.global_search_listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.global_search_listbox.connect('row-activated', self._on_global_search_station_activated)
+        scrolled.set_child(self.global_search_listbox)
+
+        page.append(scrolled)
+
+        # Initial status page
+        self.global_search_status = Adw.StatusPage()
+        self.global_search_status.set_icon_name('system-search-symbolic')
+        self.global_search_status.set_title(_("Search"))
+        self.global_search_status.set_description(_("search_description"))
+        self.global_search_listbox.append(self.global_search_status)
 
         return page
 
@@ -1995,9 +2041,11 @@ class WebRadioWindow(Adw.ApplicationWindow):
             self.fav_button.handler_unblock_by_func(self._on_favorite_toggled)
             # Update icon based on state
             if is_fav:
-                self.fav_button.set_icon_name('emblem-favorite')
+                self.fav_button.set_icon_name('starred')
+                self.fav_button.add_css_class('accent')
             else:
                 self.fav_button.set_icon_name('starred-symbolic')
+                self.fav_button.remove_css_class('accent')
 
     def _on_player_state_changed(self, player, state):
         """Handle player state change"""
@@ -2009,6 +2057,9 @@ class WebRadioWindow(Adw.ApplicationWindow):
                 self._start_spectrum_animation()
             # Start position update timer
             self._start_position_updates()
+            # Inhibit suspend while playing
+            if hasattr(self, 'session_inhibitor'):
+                self.session_inhibitor.inhibit()
         else:
             self.play_button.set_icon_name('media-playback-start-symbolic')
             # Deactivate spectrum visualizer
@@ -2017,6 +2068,9 @@ class WebRadioWindow(Adw.ApplicationWindow):
                 self._stop_spectrum_animation()
             # Stop position update timer
             self._stop_position_updates()
+            # Uninhibit suspend when not playing
+            if hasattr(self, 'session_inhibitor'):
+                self.session_inhibitor.uninhibit()
 
         # Update MPRIS
         if self.mpris:
@@ -2031,6 +2085,11 @@ class WebRadioWindow(Adw.ApplicationWindow):
         title = tags.get('title', '')
         artist = tags.get('artist', '')
         organization = tags.get('organization', '')
+
+        # Make sure station name is displayed in player bar
+        if self.player.current_station:
+            station_name = self.player.current_station.get('name', 'Unknown')
+            self.station_label.set_text(station_name)
 
         # Update metadata label (song/artist info)
         if title and artist:
@@ -2118,6 +2177,117 @@ class WebRadioWindow(Adw.ApplicationWindow):
         self.search_timeout_id = None
         self._load_top_stations()
         return False
+
+    def _on_global_search(self, widget):
+        """Handle global search"""
+        query = self.global_search_entry.get_text().strip()
+        if not query:
+            return
+
+        print(f"Global search for: {query}")
+
+        # Clear previous results
+        child = self.global_search_listbox.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
+            self.global_search_listbox.remove(child)
+            child = next_child
+
+        # Show loading status
+        loading_status = Adw.StatusPage()
+        loading_status.set_icon_name('content-loading-symbolic')
+        loading_status.set_title(_("placeholder_loading"))
+        self.global_search_listbox.append(loading_status)
+
+        def search():
+            try:
+                stations = self.api.search_stations(query, 100)
+                print(f"Global search found {len(stations)} stations")
+                GLib.idle_add(self._display_global_search_results, stations)
+            except Exception as e:
+                print(f"Error in global search: {e}")
+                GLib.idle_add(self._show_global_search_error, str(e))
+
+        threading.Thread(target=search, daemon=True).start()
+
+    def _on_global_search_changed(self, entry):
+        """Handle global search text changed - real-time search with debounce"""
+        # Cancel previous timeout
+        if hasattr(self, 'global_search_timeout_id') and self.global_search_timeout_id:
+            GLib.source_remove(self.global_search_timeout_id)
+            self.global_search_timeout_id = None
+
+        query = entry.get_text().strip()
+
+        # If empty, show initial status
+        if not query:
+            child = self.global_search_listbox.get_first_child()
+            while child:
+                next_child = child.get_next_sibling()
+                self.global_search_listbox.remove(child)
+                child = next_child
+            self.global_search_listbox.append(self.global_search_status)
+            return
+
+        # Start search after 500ms of no typing
+        self.global_search_timeout_id = GLib.timeout_add(500, self._delayed_global_search, query)
+
+    def _delayed_global_search(self, query):
+        """Execute delayed global search"""
+        self.global_search_timeout_id = None
+        if query:
+            self._on_global_search(None)
+        return False
+
+    def _display_global_search_results(self, stations):
+        """Display global search results"""
+        # Clear previous results
+        child = self.global_search_listbox.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
+            self.global_search_listbox.remove(child)
+            child = next_child
+
+        if not stations:
+            # No results
+            no_results = Adw.StatusPage()
+            no_results.set_icon_name('edit-find-symbolic')
+            no_results.set_title(_("No Stations Found"))
+            no_results.set_description(_("Try a different search term"))
+            self.global_search_listbox.append(no_results)
+            return
+
+        # Add station rows
+        for station in stations:
+            is_fav = self.favorites_manager.is_favorite(station.get('stationuuid', ''))
+            row = StationRow(station, is_fav)
+            self.global_search_listbox.append(row)
+
+    def _show_global_search_error(self, error_msg):
+        """Show global search error"""
+        # Clear previous results
+        child = self.global_search_listbox.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
+            self.global_search_listbox.remove(child)
+            child = next_child
+
+        error_status = Adw.StatusPage()
+        error_status.set_icon_name('dialog-error-symbolic')
+        error_status.set_title(_("Search Error"))
+        error_status.set_description(error_msg)
+        self.global_search_listbox.append(error_status)
+
+    def _on_global_search_station_activated(self, listbox, row):
+        """Handle global search station activation"""
+        if not isinstance(row, StationRow):
+            return
+
+        station = row.station
+        url = station.get('url_resolved') or station.get('url')
+        if url:
+            self.player.play(url, station)
+            self._update_now_playing_page()
 
     def _on_info_clicked(self, button):
         """Show Now Playing information dialog"""
@@ -2753,6 +2923,15 @@ class WebRadioWindow(Adw.ApplicationWindow):
                 self.toast_overlay.add_toast(toast)
             else:
                 print("Sleep timer stopped")
+
+    def _on_spectrum_style_changed(self, settings, key):
+        """Handle spectrum style change from settings"""
+        if not hasattr(self, 'spectrum_visualizer'):
+            return
+
+        style = settings.get_string('spectrum-style')
+        print(f"Spectrum style changed to: {style}")
+        self.spectrum_visualizer.set_style(style)
 
     def _on_record_toggled(self, button):
         """Handle record button toggle"""

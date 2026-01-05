@@ -60,7 +60,7 @@ sudo dnf install rpm-build rpmdevtools python3-wheel desktop-file-utils libappst
 sh build-rpm.sh
 
 # Installieren
-sudo dnf install ~/rpmbuild/RPMS/noarch/webradio-player-1.1.0-1.*.rpm
+sudo dnf install ~/rpmbuild/RPMS/noarch/webradio-player-1.2.0-1.*.rpm
 ```
 
 ### Aus dem Source-Code

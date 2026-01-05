@@ -8,6 +8,7 @@ from gi.repository import Gtk, Adw, Gio, GLib
 from pathlib import Path
 from webradio.equalizer import EqualizerPreset
 from webradio.recorder import RecordingFormat
+from webradio.i18n import _
 
 
 class PreferencesWindow(Adw.PreferencesWindow):
@@ -35,20 +36,20 @@ class PreferencesWindow(Adw.PreferencesWindow):
     def _create_general_page(self):
         """Create General preferences page"""
         page = Adw.PreferencesPage()
-        page.set_title("General")
+        page.set_title(_("pref_general"))
         page.set_icon_name("preferences-system-symbolic")
 
         # UI Group
         ui_group = Adw.PreferencesGroup()
-        ui_group.set_title("User Interface")
+        ui_group.set_title(_("pref_user_interface"))
 
         # Language selection
         language_row = Adw.ComboRow()
-        language_row.set_title("Language")
-        language_row.set_subtitle("Interface language")
+        language_row.set_title(_("pref_language"))
+        language_row.set_subtitle(_("pref_interface_language"))
 
         languages = Gtk.StringList()
-        languages.append("Auto-detect")
+        languages.append(_("pref_auto_detect"))
         languages.append("English")
         languages.append("Deutsch")
 
@@ -64,8 +65,8 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Minimize to tray
         tray_row = Adw.SwitchRow()
-        tray_row.set_title("Minimize to System Tray")
-        tray_row.set_subtitle("When playing, minimize to tray instead of closing")
+        tray_row.set_title(_("pref_minimize_tray"))
+        tray_row.set_subtitle(_("pref_minimize_tray_subtitle"))
 
         if self.settings:
             self.settings.bind('minimize-to-tray', tray_row, 'active', Gio.SettingsBindFlags.DEFAULT)
@@ -74,8 +75,8 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Show spectrum
         spectrum_row = Adw.SwitchRow()
-        spectrum_row.set_title("Show Spectrum Visualizer")
-        spectrum_row.set_subtitle("Display audio spectrum on Now Playing page")
+        spectrum_row.set_title(_("pref_show_spectrum"))
+        spectrum_row.set_subtitle(_("pref_show_spectrum_subtitle"))
 
         if self.settings:
             self.settings.bind('show-spectrum', spectrum_row, 'active', Gio.SettingsBindFlags.DEFAULT)
@@ -84,18 +85,21 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Spectrum style
         spectrum_style_row = Adw.ComboRow()
-        spectrum_style_row.set_title("Spectrum Style")
-        spectrum_style_row.set_subtitle("Visualization style")
+        spectrum_style_row.set_title(_("pref_spectrum_style"))
+        spectrum_style_row.set_subtitle(_("pref_visualization_style"))
 
         styles = Gtk.StringList()
-        styles.append("Bars")
-        styles.append("Line")
-        styles.append("Gradient")
+        styles.append(_("pref_bars"))
+        styles.append(_("pref_line"))
+        styles.append(_("pref_gradient"))
+        styles.append(_("pref_wave"))
+        styles.append(_("pref_dots"))
+        styles.append(_("pref_mirror"))
 
         spectrum_style_row.set_model(styles)
 
         current_style = self.settings.get_string('spectrum-style') if self.settings else 'bars'
-        style_index = {'bars': 0, 'line': 1, 'gradient': 2}.get(current_style, 0)
+        style_index = {'bars': 0, 'line': 1, 'gradient': 2, 'wave': 3, 'dots': 4, 'mirror': 5}.get(current_style, 0)
         spectrum_style_row.set_selected(style_index)
 
         spectrum_style_row.connect('notify::selected', self._on_spectrum_style_changed)
@@ -105,12 +109,12 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Behavior Group
         behavior_group = Adw.PreferencesGroup()
-        behavior_group.set_title("Behavior")
+        behavior_group.set_title(_("pref_behavior"))
 
         # Remember last station
         remember_row = Adw.SwitchRow()
-        remember_row.set_title("Remember Last Station")
-        remember_row.set_subtitle("Automatically load last played station on startup")
+        remember_row.set_title(_("pref_remember_station"))
+        remember_row.set_subtitle(_("pref_remember_station_subtitle"))
 
         if self.settings:
             self.settings.bind('remember-last-station', remember_row, 'active', Gio.SettingsBindFlags.DEFAULT)
@@ -124,17 +128,17 @@ class PreferencesWindow(Adw.PreferencesWindow):
     def _create_audio_page(self):
         """Create Audio preferences page"""
         page = Adw.PreferencesPage()
-        page.set_title("Audio")
+        page.set_title(_("pref_audio"))
         page.set_icon_name("audio-speakers-symbolic")
 
         # Audio Settings Group
         audio_group = Adw.PreferencesGroup()
-        audio_group.set_title("Audio Settings")
+        audio_group.set_title(_("pref_audio_settings"))
 
         # Volume normalization
         normalize_row = Adw.SwitchRow()
-        normalize_row.set_title("Volume Normalization")
-        normalize_row.set_subtitle("Automatically normalize volume across different streams")
+        normalize_row.set_title(_("pref_volume_normalization"))
+        normalize_row.set_subtitle(_("pref_volume_normalization_subtitle"))
 
         if self.settings:
             self.settings.bind('normalize-volume', normalize_row, 'active', Gio.SettingsBindFlags.DEFAULT)
@@ -143,8 +147,8 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Buffer size
         buffer_row = Adw.SpinRow.new_with_range(50000, 500000, 10000)
-        buffer_row.set_title("Network Buffer Size")
-        buffer_row.set_subtitle("Larger buffer = more stable but higher latency (bytes)")
+        buffer_row.set_title(_("pref_buffer_size"))
+        buffer_row.set_subtitle(_("pref_buffer_size_subtitle"))
 
         if self.settings:
             buffer_row.set_value(self.settings.get_int('buffer-size'))
@@ -159,17 +163,17 @@ class PreferencesWindow(Adw.PreferencesWindow):
     def _create_equalizer_page(self):
         """Create Equalizer preferences page"""
         page = Adw.PreferencesPage()
-        page.set_title("Equalizer")
+        page.set_title(_("pref_equalizer"))
         page.set_icon_name("multimedia-volume-control-symbolic")
 
         # Enable/Disable Group
         enable_group = Adw.PreferencesGroup()
-        enable_group.set_title("Equalizer")
+        enable_group.set_title(_("pref_equalizer"))
 
         # Enable switch
         enable_row = Adw.SwitchRow()
-        enable_row.set_title("Enable Equalizer")
-        enable_row.set_subtitle("10-band audio equalizer")
+        enable_row.set_title(_("pref_enable_equalizer"))
+        enable_row.set_subtitle(_("pref_enable_equalizer_subtitle"))
 
         if self.settings:
             self.settings.bind('equalizer-enabled', enable_row, 'active', Gio.SettingsBindFlags.DEFAULT)
@@ -178,8 +182,8 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Preset selection
         preset_row = Adw.ComboRow()
-        preset_row.set_title("Preset")
-        preset_row.set_subtitle("Choose equalizer preset")
+        preset_row.set_title(_("pref_preset"))
+        preset_row.set_subtitle(_("pref_choose_preset"))
 
         presets = Gtk.StringList()
         preset_keys = list(EqualizerPreset.PRESETS.keys())
@@ -203,11 +207,11 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Reset button
         reset_row = Adw.ActionRow()
-        reset_row.set_title("Reset to Flat")
-        reset_row.set_subtitle("Reset all bands to 0 dB")
+        reset_row.set_title(_("pref_reset_flat"))
+        reset_row.set_subtitle(_("pref_reset_flat_subtitle"))
 
         reset_button = Gtk.Button()
-        reset_button.set_label("Reset")
+        reset_button.set_label(_("pref_reset"))
         reset_button.set_valign(Gtk.Align.CENTER)
         reset_button.add_css_class('destructive-action')
         reset_button.connect('clicked', self._on_reset_equalizer)
@@ -219,8 +223,8 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Custom EQ Group
         custom_group = Adw.PreferencesGroup()
-        custom_group.set_title("Custom Equalizer")
-        custom_group.set_description("Adjust individual frequency bands (-24 to +12 dB)")
+        custom_group.set_title(_("pref_custom_equalizer"))
+        custom_group.set_description(_("pref_custom_equalizer_desc"))
 
         # Create sliders for all 10 bands
         self.eq_scales = []
@@ -259,17 +263,17 @@ class PreferencesWindow(Adw.PreferencesWindow):
     def _create_recording_page(self):
         """Create Recording preferences page"""
         page = Adw.PreferencesPage()
-        page.set_title("Recording")
+        page.set_title(_("pref_recording"))
         page.set_icon_name("media-record-symbolic")
 
         # Recording Settings Group
         recording_group = Adw.PreferencesGroup()
-        recording_group.set_title("Recording Settings")
+        recording_group.set_title(_("pref_recording_settings"))
 
         # Output format
         format_row = Adw.ComboRow()
-        format_row.set_title("Output Format")
-        format_row.set_subtitle("Audio format for recordings")
+        format_row.set_title(_("pref_output_format"))
+        format_row.set_subtitle(_("pref_output_format_subtitle"))
 
         formats = Gtk.StringList()
         format_keys = list(RecordingFormat.FORMATS.keys())
@@ -293,8 +297,8 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Output directory
         dir_row = Adw.ActionRow()
-        dir_row.set_title("Output Directory")
-        dir_row.set_subtitle("Where to save recordings")
+        dir_row.set_title(_("pref_output_directory"))
+        dir_row.set_subtitle(_("pref_output_directory_subtitle"))
 
         dir_button = Gtk.Button()
         dir_button.set_label("Choose Folder")
@@ -310,14 +314,14 @@ class PreferencesWindow(Adw.PreferencesWindow):
             current_dir = str(Path.home() / 'Music' / 'Recordings')
 
         dir_label_row = Adw.ActionRow()
-        dir_label_row.set_title("Current Directory")
+        dir_label_row.set_title(_("pref_current_directory"))
         dir_label_row.set_subtitle(current_dir)
         self.dir_label_row = dir_label_row
         recording_group.add(dir_label_row)
 
         # Filename template
         template_row = Adw.EntryRow()
-        template_row.set_title("Filename Template")
+        template_row.set_title(_("pref_filename_template"))
 
         if self.settings:
             template_row.set_text(self.settings.get_string('recording-filename-template'))
@@ -327,14 +331,14 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Template help
         help_row = Adw.ActionRow()
-        help_row.set_title("Available Variables")
-        help_row.set_subtitle("{station}, {date}, {time}, {title}, {artist}")
+        help_row.set_title(_("pref_available_variables"))
+        help_row.set_subtitle(_("pref_variables_hint"))
         recording_group.add(help_row)
 
         # Auto-start recording
         auto_row = Adw.SwitchRow()
-        auto_row.set_title("Auto-Start Recording")
-        auto_row.set_subtitle("Automatically start recording when playback begins")
+        auto_row.set_title(_("pref_auto_start_recording"))
+        auto_row.set_subtitle(_("pref_auto_start_recording_subtitle"))
 
         if self.settings:
             self.settings.bind('recording-auto-start', auto_row, 'active', Gio.SettingsBindFlags.DEFAULT)
@@ -348,17 +352,17 @@ class PreferencesWindow(Adw.PreferencesWindow):
     def _create_discovery_page(self):
         """Create Discovery preferences page"""
         page = Adw.PreferencesPage()
-        page.set_title("Discovery")
+        page.set_title(_("pref_discovery"))
         page.set_icon_name("system-search-symbolic")
 
         # Filter Settings Group
         filter_group = Adw.PreferencesGroup()
-        filter_group.set_title("Default Filters")
+        filter_group.set_title(_("pref_default_filters"))
 
         # Minimum bitrate
         bitrate_row = Adw.ComboRow()
-        bitrate_row.set_title("Minimum Bitrate")
-        bitrate_row.set_subtitle("Filter stations by minimum quality")
+        bitrate_row.set_title(_("pref_minimum_bitrate"))
+        bitrate_row.set_subtitle(_("pref_minimum_bitrate_subtitle"))
 
         bitrates = Gtk.StringList()
         bitrate_values = [0, 64, 128, 192, 256, 320]
@@ -384,7 +388,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Default country
         country_row = Adw.EntryRow()
-        country_row.set_title("Default Country")
+        country_row.set_title(_("pref_default_country"))
 
         if self.settings:
             country_row.set_text(self.settings.get_string('default-country'))
@@ -394,8 +398,8 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Sort order
         order_row = Adw.ComboRow()
-        order_row.set_title("Default Sort Order")
-        order_row.set_subtitle("How to order station lists")
+        order_row.set_title(_("pref_default_sort_order"))
+        order_row.set_subtitle(_("pref_default_sort_order_subtitle"))
 
         orders = Gtk.StringList()
         order_keys = ['votes', 'clickcount', 'bitrate', 'name']
@@ -442,7 +446,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
             return
 
         selected = combo_row.get_selected()
-        style_map = {0: 'bars', 1: 'line', 2: 'gradient'}
+        style_map = {0: 'bars', 1: 'line', 2: 'gradient', 3: 'wave', 4: 'dots', 5: 'mirror'}
         style = style_map.get(selected, 'bars')
 
         self.settings.set_string('spectrum-style', style)
@@ -513,7 +517,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
     def _on_choose_directory(self, button):
         """Show directory chooser dialog"""
         dialog = Gtk.FileDialog()
-        dialog.set_title("Choose Recording Directory")
+        dialog.set_title(_("pref_choose_recording_directory"))
         dialog.set_modal(True)
 
         dialog.select_folder(self, None, self._on_directory_selected)

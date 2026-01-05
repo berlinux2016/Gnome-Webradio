@@ -45,6 +45,21 @@
   </provides>
 
   <releases>
+    <release version="1.2.0" date="2025-01-04">
+      <description>
+        <p>Improvements and bug fixes:</p>
+        <ul>
+          <li>Fixed About dialog icon display</li>
+          <li>Renamed "YouTube Music" to "YouTube Search" for trademark compliance</li>
+          <li>Automatic stream reconnection on network changes (VPN connect/disconnect)</li>
+          <li>Fixed window not showing when clicking app icon in Dash</li>
+          <li>Improved MPRIS2 media controls reliability</li>
+          <li>Fixed station name not showing in player bar when metadata updates</li>
+          <li>More compact homepage layout</li>
+          <li>Updated GitHub repository URLs</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.1.0" date="2024-12-18">
       <description>
         <p>New features and improvements:</p>
