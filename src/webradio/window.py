@@ -14,6 +14,11 @@ from webradio.player import AudioPlayer, PlayerState
 from webradio.player_factory import create_player
 from webradio.logger import get_logger
 from webradio.ui.components.station_row import StationRow, MusicTrackRow, YouTubeVideoRow
+from webradio.ui.pages import DiscoverPage, FavoritesPage, HistoryPage, YouTubePage
+from webradio.keyboard_shortcuts import create_shortcuts_manager
+from webradio.session_manager import create_session_manager
+from webradio.notifications import create_notification_manager
+from webradio.export_import import create_export_import_manager
 
 logger = get_logger(__name__)
 from webradio.radio_api import RadioBrowserAPI
@@ -56,6 +61,9 @@ class WebRadioWindow(Adw.ApplicationWindow):
         self.history_manager = HistoryManager()
         self.music_library = MusicLibrary()
         self.youtube_music = YouTubeMusic()
+        self.session_manager = create_session_manager()
+        self.notification_manager = create_notification_manager(app)
+        self.export_import_manager = create_export_import_manager()
 
         # Initialize managers with settings
         self.equalizer_manager = EqualizerManager(self.player, self.settings)
@@ -134,8 +142,20 @@ class WebRadioWindow(Adw.ApplicationWindow):
         # Connect close request signal
         self.connect('close-request', self._on_close_request)
 
+        # Setup keyboard shortcuts
+        self.shortcuts_manager = create_shortcuts_manager(self)
+        self._register_keyboard_shortcuts()
+        logger.info("Keyboard shortcuts enabled")
+
         # Load stations after a short delay
         GLib.timeout_add(500, self._start_loading_stations)
+
+        # Load favorites and history after UI is ready
+        GLib.timeout_add(600, self._load_favorites)
+        GLib.timeout_add(650, self._load_history)
+
+        # Resume previous session if enabled
+        GLib.timeout_add(1000, self._resume_session)
 
     def _build_ui(self):
         """Build Spotify-style interface with sidebar navigation"""
@@ -158,6 +178,7 @@ class WebRadioWindow(Adw.ApplicationWindow):
         menu_button.set_icon_name('open-menu-symbolic')
         menu = Gio.Menu()
         menu.append(_('menu_preferences'), 'app.preferences')
+        menu.append("Keyboard Shortcuts", 'win.show-shortcuts')
         menu.append(_('menu_about'), 'app.about')
         menu.append(_('menu_quit'), 'app.quit')
         menu_button.set_menu_model(menu)
@@ -368,133 +389,100 @@ class WebRadioWindow(Adw.ApplicationWindow):
                 self._updating_nav_buttons = False
 
     def _create_discover_page(self):
-        """Create discover page"""
-        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        page.set_margin_start(18)
-        page.set_margin_end(18)
-        page.set_margin_top(18)
-        page.set_margin_bottom(18)
-        page.add_css_class('content-page')
+        """Create discover page using DiscoverPage component"""
+        page = DiscoverPage(
+            on_search_activate=self._on_search,
+            on_search_changed=self._on_search_changed,
+            on_country_changed=self._on_country_changed,
+            on_load_top_stations=self._load_top_stations,
+            on_load_by_tag=self._load_by_tag,
+            on_station_scroll=self._on_station_scroll,
+            on_station_activated=self._on_station_activated
+        )
 
-        # Search box
-        search_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        # Store references for backwards compatibility
+        self.search_entry = page.get_search_entry()
+        self.station_listbox = page.get_station_listbox()
+        self.country_dropdown = page.get_country_dropdown()
+        self.country_store = page.get_country_store()
+        self.station_scrolled = page.station_scrolled
 
-        self.search_entry = Gtk.Entry()
-        self.search_entry.set_placeholder_text(_('search_placeholder'))
-        self.search_entry.set_hexpand(True)
-        self.search_entry.connect('activate', self._on_search)
-        self.search_entry.connect('changed', self._on_search_changed)
-        search_box.append(self.search_entry)
-
-        search_btn = Gtk.Button(label=_('search_button'))
-        search_btn.add_css_class('pill')
-        search_btn.connect('clicked', self._on_search)
-        search_box.append(search_btn)
-
-        # Search state
+        # Store search state references
         self.search_timeout_id = None
         self.global_search_timeout_id = None
 
-        page.append(search_box)
-
-        # Country filter dropdown
-        country_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        country_label = Gtk.Label(label=_("Country:"))
-        country_box.append(country_label)
-
-        # Create country dropdown
-        self.country_store = Gtk.StringList()
-        self.country_store.append(_("All Countries"))
-
-        self.country_dropdown = Gtk.DropDown()
-        self.country_dropdown.set_model(self.country_store)
-        self.country_dropdown.set_hexpand(True)
-        self.country_dropdown.connect('notify::selected', self._on_country_changed)
-        country_box.append(self.country_dropdown)
-
-        page.append(country_box)
-
-        # Store country names for filtering
-        self.country_names = [""]  # Empty string for "All Countries"
-
-        # Filter buttons
-        filter_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-
-        filters = [
-            (_('filter_top_voted'), self._load_top_stations),
-            (_('filter_rock'), lambda: self._load_by_tag('rock')),
-            (_('filter_pop'), lambda: self._load_by_tag('pop')),
-            (_('filter_jazz'), lambda: self._load_by_tag('jazz')),
-        ]
-
-        for label, callback in filters:
-            btn = Gtk.Button(label=label)
-            btn.add_css_class('pill')
-            btn.connect('clicked', lambda b, cb=callback: cb())
-            filter_box.append(btn)
-
-        page.append(filter_box)
-
-        # Station list with infinite scrolling
-        self.station_scrolled = Gtk.ScrolledWindow()
-        self.station_scrolled.set_vexpand(True)
-        self.station_scrolled.set_min_content_height(300)
-
-        # Connect to scroll event for infinite scrolling
-        vadjustment = self.station_scrolled.get_vadjustment()
-        vadjustment.connect('value-changed', self._on_station_scroll)
-
-        self.station_listbox = Gtk.ListBox()
-        self.station_listbox.connect('row-activated', self._on_station_activated)
-
-        # Status page placeholder
-        discover_placeholder = Adw.StatusPage()
-        discover_placeholder.set_icon_name('radio-symbolic')
-        discover_placeholder.set_title(_('No Stations Loaded'))
-        discover_placeholder.set_description(_('Click "Top Voted" to browse popular stations'))
-        self.station_listbox.set_placeholder(discover_placeholder)
-
-        # Infinite scrolling state
-        self.current_offset = 0
-        self.stations_per_page = 50
-        self.is_loading_more = False
-        self.has_more_stations = True
-        self.current_filter_type = None  # 'top', 'tag', 'search', etc.
-        self.current_filter_value = None
-
-        self.station_scrolled.set_child(self.station_listbox)
-        page.append(self.station_scrolled)
+        # Store pagination state references (delegate to page)
+        self.discover_page = page
+        self.country_names = page.country_names
 
         return page
 
+    # Pagination properties delegated to discover_page
+    @property
+    def current_offset(self):
+        return self.discover_page.current_offset if hasattr(self, 'discover_page') else 0
+
+    @current_offset.setter
+    def current_offset(self, value):
+        if hasattr(self, 'discover_page'):
+            self.discover_page.current_offset = value
+
+    @property
+    def stations_per_page(self):
+        return self.discover_page.stations_per_page if hasattr(self, 'discover_page') else 50
+
+    @stations_per_page.setter
+    def stations_per_page(self, value):
+        if hasattr(self, 'discover_page'):
+            self.discover_page.stations_per_page = value
+
+    @property
+    def is_loading_more(self):
+        return self.discover_page.is_loading_more if hasattr(self, 'discover_page') else False
+
+    @is_loading_more.setter
+    def is_loading_more(self, value):
+        if hasattr(self, 'discover_page'):
+            self.discover_page.is_loading_more = value
+
+    @property
+    def has_more_stations(self):
+        return self.discover_page.has_more_stations if hasattr(self, 'discover_page') else True
+
+    @has_more_stations.setter
+    def has_more_stations(self, value):
+        if hasattr(self, 'discover_page'):
+            self.discover_page.has_more_stations = value
+
+    @property
+    def current_filter_type(self):
+        return self.discover_page.current_filter_type if hasattr(self, 'discover_page') else None
+
+    @current_filter_type.setter
+    def current_filter_type(self, value):
+        if hasattr(self, 'discover_page'):
+            self.discover_page.current_filter_type = value
+
+    @property
+    def current_filter_value(self):
+        return self.discover_page.current_filter_value if hasattr(self, 'discover_page') else None
+
+    @current_filter_value.setter
+    def current_filter_value(self, value):
+        if hasattr(self, 'discover_page'):
+            self.discover_page.current_filter_value = value
+
     def _create_favorites_page(self):
-        """Create favorites page"""
-        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        page.set_margin_start(18)
-        page.set_margin_end(18)
-        page.set_margin_top(18)
-        page.set_margin_bottom(18)
-        page.add_css_class('content-page')
+        """Create favorites page using FavoritesPage component"""
+        page = FavoritesPage(
+            on_station_activated=self._on_station_activated,
+            on_load_favorites=self._load_favorites,
+            on_export=self._on_export_favorites,
+            on_import=self._on_import_favorites
+        )
 
-        # Favorites list
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_vexpand(True)
-
-        self.favorites_listbox = Gtk.ListBox()
-        self.favorites_listbox.connect('row-activated', self._on_station_activated)
-
-        # Status page placeholder
-        favorites_placeholder = Adw.StatusPage()
-        favorites_placeholder.set_icon_name('starred-symbolic')
-        favorites_placeholder.set_title(_('No Favorites'))
-        favorites_placeholder.set_description(_('Click the star icon on a station to add it to favorites'))
-        self.favorites_listbox.set_placeholder(favorites_placeholder)
-
-        scrolled.set_child(self.favorites_listbox)
-        page.append(scrolled)
-
-        # Load favorites
-        self._load_favorites()
+        # Store references for backwards compatibility
+        self.favorites_listbox = page.get_listbox()
 
         return page
 
@@ -562,50 +550,15 @@ class WebRadioWindow(Adw.ApplicationWindow):
         return page
 
     def _create_history_page(self):
-        """Create history page showing recently played stations"""
-        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        page.set_margin_start(18)
-        page.set_margin_end(18)
-        page.set_margin_top(18)
-        page.set_margin_bottom(18)
-        page.add_css_class('content-page')
+        """Create history page using HistoryPage component"""
+        page = HistoryPage(
+            on_station_activated=self._on_history_station_activated,
+            on_clear_history=self._on_clear_history,
+            on_load_history=self._load_history
+        )
 
-        # Header with clear button
-        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-
-        title_label = Gtk.Label(label=_("Recently Played"))
-        title_label.set_xalign(0)
-        title_label.set_hexpand(True)
-        title_label.add_css_class('title-2')
-        header_box.append(title_label)
-
-        clear_button = Gtk.Button(label=_("Clear History"))
-        clear_button.add_css_class('pill')
-        clear_button.connect('clicked', self._on_clear_history)
-        header_box.append(clear_button)
-
-        page.append(header_box)
-
-        # History list
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_vexpand(True)
-
-        self.history_listbox = Gtk.ListBox()
-        self.history_listbox.set_selection_mode(Gtk.SelectionMode.NONE)
-        self.history_listbox.connect('row-activated', self._on_history_station_activated)
-
-        # Placeholder for empty history
-        placeholder = Adw.StatusPage()
-        placeholder.set_icon_name('document-open-recent-symbolic')
-        placeholder.set_title(_("No History"))
-        placeholder.set_description(_("Stations you play will appear here"))
-        self.history_listbox.set_placeholder(placeholder)
-
-        scrolled.set_child(self.history_listbox)
-        page.append(scrolled)
-
-        # Load history
-        self._load_history()
+        # Store references for backwards compatibility
+        self.history_listbox = page.get_listbox()
 
         return page
 
@@ -1075,118 +1028,25 @@ class WebRadioWindow(Adw.ApplicationWindow):
         return page
 
     def _create_youtube_page(self):
-        """Create YouTube Search page with search"""
-        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        page.set_margin_start(18)
-        page.set_margin_end(18)
-        page.set_margin_top(18)
-        page.set_margin_bottom(18)
-        page.add_css_class('content-page')
+        """Create YouTube page using YouTubePage component"""
+        page = YouTubePage(
+            youtube_music=self.youtube_music,
+            on_search=self._on_youtube_search,
+            on_filter_changed=self._on_youtube_filter_changed,
+            on_scroll=self._on_youtube_scroll,
+            on_video_activated=self._on_youtube_video_activated
+        )
 
-        # Title
-        title = Gtk.Label(label=_("youtube_title"))
-        title.add_css_class('title-2')
-        title.set_xalign(0)
-        page.append(title)
-
-        # Check if yt-dlp is available
-        if not self.youtube_music.is_available():
-            # Show error message if yt-dlp is not installed
-            status_page = Adw.StatusPage()
-            status_page.set_icon_name('dialog-error-symbolic')
-            status_page.set_title("yt-dlp not found")
-            status_page.set_description("Please install yt-dlp to use YouTube Search:\npip install yt-dlp")
-            page.append(status_page)
-            return page
-
-        # Search box
-        search_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-
-        self.youtube_search_entry = Gtk.Entry()
-        self.youtube_search_entry.set_placeholder_text(_('youtube_search'))
-        self.youtube_search_entry.set_hexpand(True)
-        self.youtube_search_entry.connect('activate', self._on_youtube_search)
-        search_box.append(self.youtube_search_entry)
-
-        search_btn = Gtk.Button(label=_('search_button'))
-        search_btn.add_css_class('pill')
-        search_btn.connect('clicked', self._on_youtube_search)
-        search_box.append(search_btn)
-
-        page.append(search_box)
-
-        # Filter box for minimum duration
-        filter_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        filter_box.set_margin_top(6)
-
-        filter_label = Gtk.Label(label="Mindestlänge:")
-        filter_box.append(filter_label)
-
-        # Dropdown for duration filter
-        self.youtube_duration_filter = Gtk.DropDown()
-        duration_options = Gtk.StringList()
-        duration_options.append("Alle")
-        duration_options.append("Min. 5 Minuten")
-        duration_options.append("Min. 10 Minuten")
-        duration_options.append("Min. 20 Minuten")
-        duration_options.append("Min. 30 Minuten")
-        self.youtube_duration_filter.set_model(duration_options)
-        self.youtube_duration_filter.set_selected(0)
-        self.youtube_duration_filter.connect('notify::selected', self._on_youtube_filter_changed)
-        filter_box.append(self.youtube_duration_filter)
-
-        page.append(filter_box)
-
-        # Column headers (like Excel) - match radio station layout
-        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        header_box.set_margin_start(12)
-        header_box.set_margin_end(12)
-        header_box.set_margin_top(8)
-        header_box.set_margin_bottom(4)
-
-        # Thumbnail column header (48px like radio logos)
-        thumbnail_header = Gtk.Label(label="")
-        thumbnail_header.set_xalign(0)
-        thumbnail_header.set_size_request(48, -1)
-        header_box.append(thumbnail_header)
-
-        # Title column header
-        title_header = Gtk.Label(label="Titel")
-        title_header.set_xalign(0)
-        title_header.set_hexpand(True)
-        title_header.add_css_class('heading')
-        header_box.append(title_header)
-
-        # Duration column header
-        duration_header = Gtk.Label(label="Dauer")
-        duration_header.set_xalign(0)
-        duration_header.set_size_request(60, -1)
-        duration_header.add_css_class('heading')
-        header_box.append(duration_header)
-
-        page.append(header_box)
-
-        # Results list
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_vexpand(True)
-
-        # Connect to scroll event for infinite scrolling
-        vadj = scrolled.get_vadjustment()
-        vadj.connect('value-changed', self._on_youtube_scroll)
-
-        self.youtube_listbox = Gtk.ListBox()
-        self.youtube_listbox.set_selection_mode(Gtk.SelectionMode.NONE)
-        self.youtube_listbox.connect('row-activated', self._on_youtube_video_activated)
-
-        # Placeholder
-        placeholder = Adw.StatusPage()
-        placeholder.set_icon_name('multimedia-player-symbolic')
-        placeholder.set_title(_("youtube_title"))
-        placeholder.set_description(_("youtube_search"))
-        self.youtube_listbox.set_placeholder(placeholder)
-
-        scrolled.set_child(self.youtube_listbox)
-        page.append(scrolled)
+        # Store references for backwards compatibility
+        if page.is_available():
+            self.youtube_search_entry = page.get_search_entry()
+            self.youtube_duration_filter = page.get_duration_filter()
+            self.youtube_listbox = page.get_listbox()
+        else:
+            # yt-dlp not available, set dummy references
+            self.youtube_search_entry = None
+            self.youtube_duration_filter = None
+            self.youtube_listbox = None
 
         return page
 
@@ -1413,6 +1273,11 @@ class WebRadioWindow(Adw.ApplicationWindow):
         stop_timer_action = Gio.SimpleAction.new("sleep-timer-stop", None)
         stop_timer_action.connect("activate", self._on_sleep_timer_stop)
         self.add_action(stop_timer_action)
+
+        # Show keyboard shortcuts action
+        shortcuts_action = Gio.SimpleAction.new("show-shortcuts", None)
+        shortcuts_action.connect("activate", lambda a, p: self._show_shortcuts_dialog())
+        self.add_action(shortcuts_action)
 
     def _start_loading_stations(self):
         """Start loading stations"""
@@ -1644,6 +1509,8 @@ class WebRadioWindow(Adw.ApplicationWindow):
             row = StationRow(station, True, on_delete_favorite=self._on_delete_favorite)
             self.favorites_listbox.append(row)
 
+        return False  # Don't repeat timeout
+
     def _on_station_activated(self, listbox, row):
         """Play selected station"""
         if isinstance(row, StationRow):
@@ -1686,6 +1553,101 @@ class WebRadioWindow(Adw.ApplicationWindow):
                 uuid = station.get('stationuuid')
                 if uuid:
                     threading.Thread(target=lambda: self.api.register_click(uuid), daemon=True).start()
+
+    def _register_keyboard_shortcuts(self):
+        """Register all keyboard shortcut handlers"""
+        # Playback controls
+        self.shortcuts_manager.register_handler('play_pause', lambda: self._on_play_pause(None))
+        self.shortcuts_manager.register_handler('stop', lambda: self._on_stop(None))
+        self.shortcuts_manager.register_handler('volume_up', self._shortcut_volume_up)
+        self.shortcuts_manager.register_handler('volume_down', self._shortcut_volume_down)
+        self.shortcuts_manager.register_handler('mute', self._shortcut_mute)
+
+        # Navigation
+        self.shortcuts_manager.register_handler('focus_search', self._shortcut_focus_search)
+        self.shortcuts_manager.register_handler('show_favorites', lambda: self._navigate_to('favorites'))
+        self.shortcuts_manager.register_handler('show_history', lambda: self._navigate_to('history'))
+
+        # Window controls
+        self.shortcuts_manager.register_handler('quit', lambda: self.close())
+        self.shortcuts_manager.register_handler('show_shortcuts', self._show_shortcuts_dialog)
+
+        # Recording
+        self.shortcuts_manager.register_handler('toggle_recording', self._shortcut_toggle_recording)
+
+        # Favorites
+        self.shortcuts_manager.register_handler('add_to_favorites', self._shortcut_add_to_favorites)
+
+        logger.info("Registered all keyboard shortcut handlers")
+
+    def _shortcut_volume_up(self):
+        """Increase volume by 10%"""
+        current = self.player.get_volume()
+        new_volume = min(1.0, current + 0.1)
+        self.player.set_volume(new_volume)
+        self.volume_button.set_value(new_volume)
+        logger.debug(f"Volume up: {new_volume:.1f}")
+
+    def _shortcut_volume_down(self):
+        """Decrease volume by 10%"""
+        current = self.player.get_volume()
+        new_volume = max(0.0, current - 0.1)
+        self.player.set_volume(new_volume)
+        self.volume_button.set_value(new_volume)
+        logger.debug(f"Volume down: {new_volume:.1f}")
+
+    def _shortcut_mute(self):
+        """Toggle mute"""
+        if not hasattr(self, '_muted'):
+            self._muted = False
+            self._volume_before_mute = 1.0
+
+        if self._muted:
+            # Unmute
+            self.player.set_volume(self._volume_before_mute)
+            self.volume_button.set_value(self._volume_before_mute)
+            self._muted = False
+            logger.debug("Unmuted")
+        else:
+            # Mute
+            self._volume_before_mute = self.player.get_volume()
+            self.player.set_volume(0.0)
+            self.volume_button.set_value(0.0)
+            self._muted = True
+            logger.debug("Muted")
+
+    def _shortcut_focus_search(self):
+        """Focus the search entry"""
+        if hasattr(self, 'search_entry') and self.search_entry:
+            self.view_stack.set_visible_child_name('discover')
+            self.search_entry.grab_focus()
+            logger.debug("Focused search entry")
+
+    def _shortcut_toggle_recording(self):
+        """Toggle recording on/off"""
+        if hasattr(self, 'record_button') and self.record_button:
+            current_state = self.record_button.get_active()
+            self.record_button.set_active(not current_state)
+            logger.debug(f"Recording toggled: {not current_state}")
+
+    def _shortcut_add_to_favorites(self):
+        """Add current station to favorites"""
+        station = self.player.get_current_station()
+        if station:
+            uuid = station.get('stationuuid')
+            if uuid and not self.favorites_manager.is_favorite(uuid):
+                self.favorites_manager.add_favorite(station)
+                if hasattr(self, 'fav_button'):
+                    self.fav_button.set_active(True)
+                toast = Adw.Toast.new(_("Added to favorites"))
+                toast.set_timeout(2)
+                self.add_toast(toast)
+                logger.info(f"Added station to favorites via shortcut: {station.get('name')}")
+
+    def _show_shortcuts_dialog(self):
+        """Show keyboard shortcuts help dialog"""
+        if hasattr(self, 'shortcuts_manager'):
+            self.shortcuts_manager.show_shortcuts_dialog()
 
     def _on_play_pause(self, button):
         """Toggle play/pause"""
@@ -1766,6 +1728,146 @@ class WebRadioWindow(Adw.ApplicationWindow):
                 self.fav_button.set_icon_name('starred-symbolic')
                 self.fav_button.remove_css_class('accent')
 
+    def _on_export_favorites(self):
+        """Handle export favorites button click"""
+        # Create file chooser dialog
+        dialog = Gtk.FileDialog()
+        dialog.set_title(_("Export Favorites"))
+        dialog.set_initial_name("webradio-favorites")
+
+        # Set file filters for OPML and M3U
+        filters = Gio.ListStore.new(Gtk.FileFilter)
+
+        opml_filter = Gtk.FileFilter()
+        opml_filter.set_name(_("OPML Files (*.opml)"))
+        opml_filter.add_pattern("*.opml")
+        filters.append(opml_filter)
+
+        m3u_filter = Gtk.FileFilter()
+        m3u_filter.set_name(_("M3U Playlists (*.m3u)"))
+        m3u_filter.add_pattern("*.m3u")
+        filters.append(m3u_filter)
+
+        all_filter = Gtk.FileFilter()
+        all_filter.set_name(_("All Files"))
+        all_filter.add_pattern("*")
+        filters.append(all_filter)
+
+        dialog.set_filters(filters)
+        dialog.set_default_filter(opml_filter)
+
+        # Show save dialog
+        dialog.save(self, None, self._on_export_favorites_done)
+
+    def _on_export_favorites_done(self, dialog, result):
+        """Handle export favorites file selection"""
+        try:
+            file = dialog.save_finish(result)
+            if file:
+                file_path = file.get_path()
+
+                # Get favorites
+                favorites = self.favorites_manager.get_favorites()
+
+                # Determine format from extension
+                if file_path.endswith('.m3u'):
+                    success = self.export_import_manager.export_to_m3u(favorites, file_path)
+                    format_name = "M3U"
+                else:
+                    # Default to OPML, add extension if missing
+                    if not file_path.endswith('.opml'):
+                        file_path += '.opml'
+                    success = self.export_import_manager.export_to_opml(favorites, file_path)
+                    format_name = "OPML"
+
+                # Show toast notification
+                if success:
+                    toast = Adw.Toast.new(_("Exported {count} favorites to {format}").format(
+                        count=len(favorites), format=format_name))
+                    toast.set_timeout(3)
+                    self.toast_overlay.add_toast(toast)
+                else:
+                    toast = Adw.Toast.new(_("Failed to export favorites"))
+                    toast.set_timeout(3)
+                    self.toast_overlay.add_toast(toast)
+
+        except Exception as e:
+            logger.error(f"Export favorites error: {e}")
+
+    def _on_import_favorites(self):
+        """Handle import favorites button click"""
+        # Create file chooser dialog
+        dialog = Gtk.FileDialog()
+        dialog.set_title(_("Import Favorites"))
+
+        # Set file filters for OPML and M3U
+        filters = Gio.ListStore.new(Gtk.FileFilter)
+
+        opml_filter = Gtk.FileFilter()
+        opml_filter.set_name(_("OPML Files (*.opml)"))
+        opml_filter.add_pattern("*.opml")
+        filters.append(opml_filter)
+
+        m3u_filter = Gtk.FileFilter()
+        m3u_filter.set_name(_("M3U Playlists (*.m3u)"))
+        m3u_filter.add_pattern("*.m3u")
+        filters.append(m3u_filter)
+
+        all_filter = Gtk.FileFilter()
+        all_filter.set_name(_("All Files"))
+        all_filter.add_pattern("*")
+        filters.append(all_filter)
+
+        dialog.set_filters(filters)
+
+        # Show open dialog
+        dialog.open(self, None, self._on_import_favorites_done)
+
+    def _on_import_favorites_done(self, dialog, result):
+        """Handle import favorites file selection"""
+        try:
+            file = dialog.open_finish(result)
+            if file:
+                file_path = file.get_path()
+
+                # Determine format from extension
+                if file_path.endswith('.m3u'):
+                    stations = self.export_import_manager.import_from_m3u(file_path)
+                    format_name = "M3U"
+                else:
+                    stations = self.export_import_manager.import_from_opml(file_path)
+                    format_name = "OPML"
+
+                if stations:
+                    # Add imported stations to favorites
+                    added_count = 0
+                    for station in stations:
+                        # Generate a UUID if not present
+                        if 'stationuuid' not in station:
+                            import uuid
+                            station['stationuuid'] = str(uuid.uuid4())
+
+                        # Add to favorites (skip duplicates)
+                        if not self.favorites_manager.is_favorite(station['stationuuid']):
+                            self.favorites_manager.add_favorite(station)
+                            added_count += 1
+
+                    # Reload favorites list
+                    self._load_favorites()
+
+                    # Show toast notification
+                    toast = Adw.Toast.new(_("Imported {added} of {total} stations from {format}").format(
+                        added=added_count, total=len(stations), format=format_name))
+                    toast.set_timeout(3)
+                    self.toast_overlay.add_toast(toast)
+                else:
+                    toast = Adw.Toast.new(_("Failed to import favorites"))
+                    toast.set_timeout(3)
+                    self.toast_overlay.add_toast(toast)
+
+        except Exception as e:
+            logger.error(f"Import favorites error: {e}")
+
     def _on_player_state_changed(self, player, state):
         """Handle player state change"""
         if state == PlayerState.PLAYING.value:
@@ -1817,6 +1919,11 @@ class WebRadioWindow(Adw.ApplicationWindow):
             self.metadata_label.set_text(f'{title}')
         elif organization:
             self.metadata_label.set_text(organization)
+
+        # Send notification for track change
+        if title and self.notification_manager:
+            station_name = self.player.current_station.get('name', 'Radio') if self.player.current_station else 'Radio'
+            self.notification_manager.notify_track_change(station_name, title, artist)
 
         # Update Now Playing page
         self._update_now_playing_page()
@@ -2249,6 +2356,8 @@ class WebRadioWindow(Adw.ApplicationWindow):
             row = self._create_history_row(entry, entry)
             self.history_listbox.append(row)
 
+        return False  # Don't repeat timeout
+
     def _create_history_row(self, station: dict, entry: dict):
         """Create a history list row"""
         row = Gtk.ListBoxRow()
@@ -2526,6 +2635,9 @@ class WebRadioWindow(Adw.ApplicationWindow):
 
     def _on_close_request(self, window):
         """Handle window close request"""
+        # Save session state before closing
+        self._save_session()
+
         # Check if player is playing
         if self.player.is_playing() and self.minimize_to_tray:
             # Hide window instead of closing - let app run in background
@@ -2544,6 +2656,81 @@ class WebRadioWindow(Adw.ApplicationWindow):
             # Allow window to close (will quit application)
             print("Closing window (no playback)")
             return False
+
+    def _save_session(self):
+        """Save current session state"""
+        try:
+            station = self.player.get_current_station()
+            volume = self.player.get_volume()
+            was_playing = self.player.is_playing()
+
+            self.session_manager.save_session(station, volume, was_playing)
+            logger.info("Session state saved")
+        except Exception as e:
+            logger.error(f"Failed to save session: {e}")
+
+    def _resume_session(self):
+        """Resume previous session if available"""
+        try:
+            session = self.session_manager.load_session()
+
+            if not session:
+                logger.info("No session to resume")
+                return False
+
+            # Restore volume
+            volume = session.get('volume', 1.0)
+            self.player.set_volume(volume)
+            if hasattr(self, 'volume_button'):
+                self.volume_button.set_value(volume)
+
+            # Restore station and playback if it was playing
+            station = session.get('station')
+            was_playing = session.get('was_playing', False)
+
+            if station and was_playing:
+                logger.info(f"Resuming station: {station.get('name')}")
+                # Play the station
+                self._play_station(station)
+
+                toast = Adw.Toast.new(f"Resumed: {station.get('name', 'station')}")
+                toast.set_timeout(3)
+                self.add_toast(toast)
+
+            elif station:
+                # Just set up the UI without playing
+                logger.info(f"Restoring station info (not playing): {station.get('name')}")
+                self.player.set_current_station(station)
+                self._update_now_playing_ui(station)
+
+        except Exception as e:
+            logger.error(f"Failed to resume session: {e}")
+
+        return False  # Don't repeat this timeout
+
+    def _update_now_playing_ui(self, station: dict):
+        """Update UI with station info without playing"""
+        if not station:
+            return
+
+        name = station.get('name', 'Unknown Station')
+        self.station_label.set_text(name)
+
+        # Update buttons
+        if hasattr(self, 'play_button'):
+            self.play_button.set_sensitive(True)
+
+        if hasattr(self, 'fav_button'):
+            uuid = station.get('stationuuid')
+            if uuid:
+                is_fav = self.favorites_manager.is_favorite(uuid)
+                self.fav_button.set_active(is_fav)
+                self.fav_button.set_sensitive(True)
+
+        # Load favicon if available
+        favicon = station.get('favicon')
+        if favicon:
+            self._load_favicon(favicon, lambda pixbuf: self.playing_logo.set_from_pixbuf(pixbuf))
 
     def _show_tray_unavailable_dialog(self):
         """Show dialog when tray is not available"""
@@ -2606,6 +2793,10 @@ class WebRadioWindow(Adw.ApplicationWindow):
         if hasattr(self, 'toast_overlay'):
             self.toast_overlay.add_toast(toast)
 
+        # Send desktop notification
+        if self.notification_manager:
+            self.notification_manager.notify_recording_started(file_path)
+
         # Update record button icon to show recording state
         if hasattr(self, 'record_button'):
             self.record_button.set_icon_name('media-playback-stop-symbolic')
@@ -2625,6 +2816,10 @@ class WebRadioWindow(Adw.ApplicationWindow):
         toast.set_timeout(5)
         if hasattr(self, 'toast_overlay'):
             self.toast_overlay.add_toast(toast)
+
+        # Send desktop notification
+        if self.notification_manager:
+            self.notification_manager.notify_recording_stopped(file_path, duration_str)
 
         # Update record button icon back to normal
         if hasattr(self, 'record_button'):
@@ -2985,8 +3180,9 @@ class WebRadioWindow(Adw.ApplicationWindow):
                         station_info = {
                             'name': video['title'],
                             'artist': video.get('channel', 'YouTube'),
-                            'url': video_url,
-                            'favicon': video.get('thumbnail', '')  # Add thumbnail for MPRIS
+                            'url': video_url,  # Original YouTube watch URL for recording
+                            'favicon': video.get('thumbnail', ''),  # Add thumbnail for MPRIS
+                            'is_youtube': True  # Flag for YouTube recording
                         }
 
                         print(f"Got audio URL, playing: {video['title']}")
@@ -2996,11 +3192,11 @@ class WebRadioWindow(Adw.ApplicationWindow):
                             self.player.play(audio_url, station_info)
                             self._update_now_playing_page()
 
-                            # Enable player controls
+                            # Enable player controls (including recording for YouTube!)
                             self.play_button.set_sensitive(True)
                             self.stop_button.set_sensitive(True)
                             self.fav_button.set_sensitive(False)  # No favorites for YouTube
-                            self.record_button.set_sensitive(False)  # No recording for YouTube
+                            self.record_button.set_sensitive(True)  # Enable recording for YouTube
 
                             # Re-enable YouTube list
                             self.youtube_listbox.set_sensitive(True)

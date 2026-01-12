@@ -220,6 +220,10 @@ class StreamRecorder(GObject.Object):
             self.emit('recording-error', error)
             return False
 
+        # Check if this is a YouTube stream (has 'is_youtube' flag)
+        if station_info.get('is_youtube', False):
+            return self._start_youtube_recording(station_info, metadata)
+
         # Ensure output directory exists
         if not self._ensure_output_directory():
             error = "Could not create output directory"
@@ -270,7 +274,39 @@ class StreamRecorder(GObject.Object):
             return False
 
         try:
-            # Stop recording in player
+            # Check if this is a YouTube recording (has youtube_download_process)
+            if hasattr(self, 'youtube_download_process') and self.youtube_download_process:
+                # Terminate yt-dlp download process
+                try:
+                    self.youtube_download_process.terminate()
+                    self.youtube_download_process.wait(timeout=5)
+                    logger.info("YouTube download process terminated")
+                except Exception as e:
+                    logger.warning(f"Failed to terminate YouTube download: {e}")
+                    # Force kill if termination failed
+                    try:
+                        self.youtube_download_process.kill()
+                    except:
+                        pass
+
+                # Calculate duration
+                duration = 0
+                if self.start_time:
+                    duration = int((datetime.now() - self.start_time).total_seconds())
+
+                file_path = self.current_file
+
+                self.is_recording = False
+                self.current_file = None
+                self.start_time = None
+                self.station_info = None
+                self.youtube_download_process = None
+
+                self.emit('recording-stopped', file_path, duration)
+                logger.info(f"YouTube recording stopped: {file_path} ({duration}s)")
+                return True
+
+            # Regular stream recording (via player)
             success = self.player.stop_recording()
 
             if success:
@@ -326,6 +362,120 @@ class StreamRecorder(GObject.Object):
     def is_recording_active(self) -> bool:
         """Check if currently recording"""
         return self.is_recording
+
+    def _start_youtube_recording(self, station_info: dict, metadata: dict = None) -> bool:
+        """
+        Start recording YouTube stream using yt-dlp download.
+
+        YouTube streams use temporary signed URLs that expire, making
+        traditional streaming recording unreliable. Instead, we use yt-dlp
+        to download the audio directly while playback continues.
+
+        Args:
+            station_info: Station info with 'url' field containing YouTube watch URL
+            metadata: Optional metadata (not used for YouTube)
+
+        Returns:
+            bool: True if recording started successfully
+        """
+        # Ensure output directory exists
+        if not self._ensure_output_directory():
+            error = "Could not create output directory"
+            self.emit('recording-error', error)
+            return False
+
+        try:
+            import threading
+            import subprocess
+
+            youtube_url = station_info.get('url', '')
+            if not youtube_url:
+                error = "No YouTube URL found"
+                logger.error(error)
+                self.emit('recording-error', error)
+                return False
+
+            # Generate filename
+            filename = self._generate_filename(station_info, metadata)
+            file_path = self.output_directory / filename
+
+            # Make sure file doesn't exist
+            counter = 1
+            original_path = file_path
+            while file_path.exists():
+                stem = original_path.stem
+                extension = original_path.suffix
+                file_path = original_path.parent / f"{stem}_{counter}{extension}"
+                counter += 1
+
+            # Set recording state
+            self.is_recording = True
+            self.current_file = str(file_path)
+            self.start_time = datetime.now()
+            self.station_info = station_info
+            self.youtube_download_process = None
+
+            # Emit recording started
+            self.emit('recording-started', self.current_file)
+            logger.info(f"Starting YouTube recording: {self.current_file}")
+
+            def download_youtube_audio():
+                """Download YouTube audio in background thread"""
+                try:
+                    # Use yt-dlp to download audio
+                    # Format: bestaudio (download best audio quality)
+                    # Output: specified file path with automatic extension
+                    cmd = [
+                        'yt-dlp',
+                        '--extract-audio',  # Extract audio only
+                        '--audio-format', self.current_format,  # Output format
+                        '--audio-quality', '0',  # Best quality
+                        '--output', str(file_path),  # Output file
+                        '--no-playlist',  # Don't download playlists
+                        '--quiet',  # Minimal output
+                        '--progress',  # Show progress
+                        youtube_url
+                    ]
+
+                    logger.debug(f"YouTube download command: {' '.join(cmd)}")
+
+                    # Run yt-dlp
+                    self.youtube_download_process = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE
+                    )
+
+                    # Wait for completion
+                    stdout, stderr = self.youtube_download_process.communicate()
+
+                    if self.youtube_download_process.returncode == 0:
+                        logger.info(f"YouTube recording completed: {self.current_file}")
+                        # Note: File may have extension added by yt-dlp (.mp3, .m4a, etc.)
+                    else:
+                        error_msg = stderr.decode('utf-8') if stderr else "Unknown error"
+                        logger.error(f"YouTube recording failed: {error_msg}")
+                        if self.is_recording:  # Only emit if still recording
+                            self.emit('recording-error', f"Download failed: {error_msg}")
+
+                except Exception as e:
+                    logger.error(f"YouTube recording error: {e}")
+                    if self.is_recording:  # Only emit if still recording
+                        self.emit('recording-error', str(e))
+
+            # Start download in background thread
+            download_thread = threading.Thread(target=download_youtube_audio, daemon=True)
+            download_thread.start()
+
+            return True
+
+        except Exception as e:
+            error = f"Error starting YouTube recording: {e}"
+            logger.error(error)
+            self.emit('recording-error', error)
+            self.is_recording = False
+            self.current_file = None
+            return False
 
     def set_filename_template(self, template: str) -> bool:
         """Set filename template"""
