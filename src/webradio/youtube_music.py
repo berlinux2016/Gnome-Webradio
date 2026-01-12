@@ -3,6 +3,9 @@
 import subprocess
 import json
 from typing import List, Dict, Optional
+from webradio.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class YouTubeMusic:
@@ -37,13 +40,13 @@ class YouTubeMusic:
             List of video dictionaries with title, url, duration, thumbnail, etc.
         """
         if not self.ytdlp_available:
-            print("yt-dlp is not available")
+            logger.warning("yt-dlp is not available")
             return []
 
         try:
             # Use ytsearch to search YouTube
             search_query = f"ytsearch{max_results}:{query} music"
-            print(f"YouTube search query: {search_query}")
+            logger.debug(f"YouTube search query: {search_query}")
 
             cmd = [
                 'yt-dlp',
@@ -55,7 +58,7 @@ class YouTubeMusic:
                 search_query
             ]
 
-            print(f"Running command: {' '.join(cmd)}")
+            logger.debug(f"Running command: {' '.join(cmd)}")
 
             result = subprocess.run(
                 cmd,
@@ -64,16 +67,16 @@ class YouTubeMusic:
                 timeout=30
             )
 
-            print(f"yt-dlp returncode: {result.returncode}")
+            logger.debug(f"yt-dlp returncode: {result.returncode}")
 
             if result.returncode != 0:
-                print(f"yt-dlp search failed: {result.stderr}")
+                logger.error(f"yt-dlp search failed: {result.stderr}")
                 return []
 
             # Parse JSON output (one JSON object per line)
             videos = []
             lines = result.stdout.strip().split('\n')
-            print(f"Got {len(lines)} lines of output")
+            logger.debug(f"Got {len(lines)} lines of yt-dlp output")
 
             for line in lines:
                 if line:
@@ -82,7 +85,7 @@ class YouTubeMusic:
                         video_id = video_data.get('id', '')
 
                         if not video_id:
-                            print(f"Warning: No video ID found in: {line[:100]}")
+                            logger.warning(f"No video ID found in yt-dlp output: {line[:100]}")
                             continue
 
                         # Always construct thumbnail URL from video ID for consistency
@@ -104,20 +107,20 @@ class YouTubeMusic:
                             'view_count': video_data.get('view_count', 0),
                         }
                         videos.append(video_info)
-                        print(f"Added video: {video_info['title']}")
+                        logger.debug(f"Added YouTube video: {video_info['title']}")
 
                     except json.JSONDecodeError as e:
-                        print(f"JSON decode error: {e} for line: {line[:100]}")
+                        logger.error(f"JSON decode error: {e} for line: {line[:100]}")
                         continue
 
-            print(f"Returning {len(videos)} videos")
+            logger.info(f"YouTube search returned {len(videos)} videos")
             return videos
 
         except subprocess.TimeoutExpired:
-            print("yt-dlp search timed out")
+            logger.error("yt-dlp search timed out")
             return []
         except Exception as e:
-            print(f"YouTube search error: {e}")
+            logger.error(f"YouTube search error: {e}")
             return []
 
     def get_audio_url(self, video_url: str) -> Optional[str]:
@@ -154,14 +157,14 @@ class YouTubeMusic:
                 audio_url = result.stdout.strip()
                 return audio_url if audio_url else None
             else:
-                print(f"Failed to get audio URL: {result.stderr}")
+                logger.error(f"Failed to get YouTube audio URL: {result.stderr}")
                 return None
 
         except subprocess.TimeoutExpired:
-            print("yt-dlp get-url timed out")
+            logger.error("yt-dlp get-url timed out")
             return None
         except Exception as e:
-            print(f"Error getting audio URL: {e}")
+            logger.error(f"Error getting YouTube audio URL: {e}")
             return None
 
     def get_video_info(self, video_url: str) -> Optional[Dict]:
@@ -209,7 +212,7 @@ class YouTubeMusic:
                 return None
 
         except Exception as e:
-            print(f"Error getting video info: {e}")
+            logger.error(f"Error getting YouTube video info: {e}")
             return None
 
     def format_duration(self, seconds: int) -> str:

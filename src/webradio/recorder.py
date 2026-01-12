@@ -5,6 +5,9 @@ from pathlib import Path
 from datetime import datetime
 import os
 from gi.repository import Gio, GObject
+from webradio.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class RecordingFormat:
@@ -90,7 +93,7 @@ class StreamRecorder(GObject.Object):
                 self.output_directory = self._get_default_directory()
 
         except Exception as e:
-            print(f"Error loading recorder settings: {e}")
+            logger.error(f"Error loading recorder settings: {e}")
 
     def _save_settings(self):
         """Save recorder settings to GSettings"""
@@ -104,7 +107,7 @@ class StreamRecorder(GObject.Object):
             self.settings.set_boolean('recording-auto-start', self.auto_start)
 
         except Exception as e:
-            print(f"Error saving recorder settings: {e}")
+            logger.error(f"Error saving recorder settings: {e}")
 
     def _get_default_directory(self) -> Path:
         """Get default recording directory"""
@@ -122,7 +125,7 @@ class StreamRecorder(GObject.Object):
             self.output_directory.mkdir(parents=True, exist_ok=True)
             return True
         except Exception as e:
-            print(f"Error creating output directory: {e}")
+            logger.error(f"Error creating output directory: {e}")
             return False
 
     def set_output_directory(self, directory: str) -> bool:
@@ -133,7 +136,7 @@ class StreamRecorder(GObject.Object):
             self._save_settings()
             return True
         except Exception as e:
-            print(f"Error setting output directory: {e}")
+            logger.error(f"Error setting output directory: {e}")
             return False
 
     def get_output_directory(self) -> str:
@@ -143,7 +146,7 @@ class StreamRecorder(GObject.Object):
     def set_format(self, format_key: str) -> bool:
         """Set recording format"""
         if format_key not in RecordingFormat.FORMATS:
-            print(f"Unknown format: {format_key}")
+            logger.warning(f"Unknown format: {format_key}")
             return False
 
         self.output_format = format_key
@@ -208,12 +211,12 @@ class StreamRecorder(GObject.Object):
     def start_recording(self, station_info: dict, metadata: dict = None) -> bool:
         """Start recording current stream"""
         if self.is_recording:
-            print("Already recording")
+            logger.warning("Already recording")
             return False
 
         if not self.player or not self.player.is_playing():
             error = "Cannot record when not playing"
-            print(error)
+            logger.error(error)
             self.emit('recording-error', error)
             return False
 
@@ -247,7 +250,7 @@ class StreamRecorder(GObject.Object):
                 self.station_info = station_info
 
                 self.emit('recording-started', self.current_file)
-                print(f"Recording started: {self.current_file}")
+                logger.info(f"Recording started: {self.current_file}")
                 return True
             else:
                 error = "Player failed to start recording"
@@ -256,14 +259,14 @@ class StreamRecorder(GObject.Object):
 
         except Exception as e:
             error = f"Error starting recording: {e}"
-            print(error)
+            logger.error(error)
             self.emit('recording-error', error)
             return False
 
     def stop_recording(self) -> bool:
         """Stop current recording"""
         if not self.is_recording:
-            print("Not recording")
+            logger.warning("Not recording")
             return False
 
         try:
@@ -284,7 +287,7 @@ class StreamRecorder(GObject.Object):
                 self.station_info = None
 
                 self.emit('recording-stopped', file_path, duration)
-                print(f"Recording stopped: {file_path} ({duration}s)")
+                logger.info(f"Recording stopped: {file_path} ({duration}s)")
                 return True
             else:
                 error = "Player failed to stop recording"
@@ -293,7 +296,7 @@ class StreamRecorder(GObject.Object):
 
         except Exception as e:
             error = f"Error stopping recording: {e}"
-            print(error)
+            logger.error(error)
             self.emit('recording-error', error)
             return False
 

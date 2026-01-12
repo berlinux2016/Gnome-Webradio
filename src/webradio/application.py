@@ -6,6 +6,9 @@ gi.require_version('Adw', '1')
 
 from gi.repository import Gtk, Adw, Gio, GLib, Gdk
 from webradio.window import WebRadioWindow
+from webradio.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class WebRadioApplication(Adw.Application):
@@ -20,10 +23,10 @@ class WebRadioApplication(Adw.Application):
         # Initialize GSettings
         try:
             self.settings = Gio.Settings.new('org.webradio.Player')
-            print("GSettings initialized successfully")
+            logger.info("GSettings initialized successfully")
         except Exception as e:
-            print(f"Warning: Could not initialize GSettings: {e}")
-            print("The app will still work, but preferences won't persist")
+            logger.warning(f"Could not initialize GSettings: {e}")
+            logger.warning("The app will still work, but preferences won't persist")
             self.settings = None
 
         self.create_action('quit', self.on_quit, ['<primary>q'])
@@ -72,7 +75,7 @@ class WebRadioApplication(Adw.Application):
             # Add local icon directory to search path
             icon_theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
             icon_theme.add_search_path(icon_dir)
-            print(f"Added icon search path: {icon_dir}")
+            logger.debug(f"Added icon search path: {icon_dir}")
 
     def _load_css(self):
         """Load custom CSS stylesheet"""
@@ -96,15 +99,15 @@ class WebRadioApplication(Adw.Application):
                         css_provider,
                         Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
                     )
-                    print(f"Custom CSS loaded from: {css_path}")
+                    logger.info(f"Custom CSS loaded from: {css_path}")
                     css_loaded = True
                     break
 
             if not css_loaded:
-                print("Warning: Could not find custom CSS file")
+                logger.warning("Could not find custom CSS file")
 
         except Exception as e:
-            print(f"Warning: Could not load custom CSS: {e}")
+            logger.warning(f"Could not load custom CSS: {e}")
 
     def do_command_line(self, command_line):
         """Handle command line arguments"""

@@ -5,9 +5,12 @@ gi.require_version('Gst', '1.0')
 from gi.repository import Gst, GObject, GLib
 from enum import Enum
 from typing import Optional, Callable
+from webradio.logger import get_logger
 
 # Initialize GStreamer
 Gst.init(None)
+
+logger = get_logger(__name__)
 
 
 class PlayerState(Enum):
@@ -76,7 +79,7 @@ class AudioPlayer(GObject.Object):
         # Store references (for compatibility)
         self.playbin = self.pipeline
 
-        print("Simple playbin pipeline created successfully")
+        logger.info("Simple playbin pipeline created successfully")
 
     def play(self, uri: str, station_info: dict = None):
         """Play a radio stream"""
@@ -165,7 +168,7 @@ class AudioPlayer(GObject.Object):
     def set_auto_reconnect(self, enabled: bool):
         """Enable or disable automatic reconnection on network errors"""
         self._auto_reconnect = enabled
-        print(f"Auto-reconnect {'enabled' if enabled else 'disabled'}")
+        logger.info(f"Auto-reconnect {'enabled' if enabled else 'disabled'}")
 
     def _set_state(self, new_state: PlayerState):
         """Update player state and emit signal"""
@@ -184,9 +187,9 @@ class AudioPlayer(GObject.Object):
         elif t == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
             error_msg = f"Playback error: {err}"
-            print(f"ERROR: {error_msg}")
+            logger.error(error_msg)
             if debug:
-                print(f"DEBUG: {debug}")
+                logger.debug(f"Debug info: {debug}")
 
             # Try to reconnect automatically if enabled and we have a URI
             if self._auto_reconnect and self.current_uri and self._reconnect_attempts < self._max_reconnect_attempts:
@@ -204,7 +207,7 @@ class AudioPlayer(GObject.Object):
                     )
                     delay_msg = f"in {delay_sec:.1f}s"
 
-                print(f"Network error detected. Attempting reconnect {self._reconnect_attempts}/{self._max_reconnect_attempts} {delay_msg}...")
+                logger.warning(f"Network error detected. Attempting reconnect {self._reconnect_attempts}/{self._max_reconnect_attempts} {delay_msg}...")
                 self.emit('error', f"Verbindung unterbrochen. Reconnect {delay_msg}... ({self._reconnect_attempts}/{self._max_reconnect_attempts})")
 
                 # Set to NULL state first
@@ -222,7 +225,7 @@ class AudioPlayer(GObject.Object):
 
         elif t == Gst.MessageType.WARNING:
             warn, debug = message.parse_warning()
-            print(f"WARNING: {warn}")
+            logger.warning(f"GStreamer warning: {warn}")
 
         elif t == Gst.MessageType.STATE_CHANGED:
             if message.src == self.pipeline:
@@ -288,7 +291,7 @@ class AudioPlayer(GObject.Object):
                 self._max_reconnect_delay
             )
 
-        print(f"Scheduling reconnect attempt {self._reconnect_attempts}/{self._max_reconnect_attempts} in {delay}ms")
+        logger.debug(f"Scheduling reconnect attempt {self._reconnect_attempts}/{self._max_reconnect_attempts} in {delay}ms")
 
         # Schedule new reconnect
         self._reconnect_timeout_id = GLib.timeout_add(
@@ -309,7 +312,7 @@ class AudioPlayer(GObject.Object):
         if not self.current_uri:
             return False
 
-        print(f"Reconnecting to: {self.current_uri}")
+        logger.info(f"Reconnecting to: {self.current_uri}")
 
         # Set URI again
         self.pipeline.set_property('uri', self.current_uri)
@@ -319,11 +322,11 @@ class AudioPlayer(GObject.Object):
 
         if result != Gst.StateChangeReturn.FAILURE:
             self._set_state(PlayerState.PLAYING)
-            print("Reconnect successful!")
+            logger.info("Reconnect successful!")
             # Reset counter on successful reconnect
             self._reconnect_attempts = 0
         else:
-            print("Reconnect failed")
+            logger.error("Reconnect failed")
 
         return False  # Don't repeat the timeout
 

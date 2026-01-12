@@ -2,6 +2,9 @@
 
 from typing import Dict, List, Optional
 from gi.repository import Gio
+from webradio.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class EqualizerPreset:
@@ -88,7 +91,7 @@ class EqualizerManager:
                 self.custom_gains[i] = self.settings.get_double(f'equalizer-band{i}')
 
         except Exception as e:
-            print(f"Error loading equalizer settings: {e}")
+            logger.error(f"Error loading equalizer settings: {e}")
 
     def _save_to_settings(self):
         """Save equalizer state to GSettings"""
@@ -104,7 +107,7 @@ class EqualizerManager:
                 self.settings.set_double(f'equalizer-band{i}', self.custom_gains[i])
 
         except Exception as e:
-            print(f"Error saving equalizer settings: {e}")
+            logger.error(f"Error saving equalizer settings: {e}")
 
     def set_enabled(self, enabled: bool) -> bool:
         """Enable or disable equalizer"""
@@ -144,7 +147,7 @@ class EqualizerManager:
     def apply_preset(self, preset_key: str) -> bool:
         """Apply an equalizer preset"""
         if preset_key not in EqualizerPreset.PRESETS:
-            print(f"Unknown preset: {preset_key}")
+            logger.warning(f"Unknown preset: {preset_key}")
             return False
 
         preset = EqualizerPreset.PRESETS[preset_key]
@@ -162,7 +165,7 @@ class EqualizerManager:
         self.current_preset = preset_key
         self._save_to_settings()
 
-        print(f"Applied equalizer preset: {preset_key}")
+        logger.info(f"Applied equalizer preset: {preset_key}")
         return True
 
     def get_current_preset(self) -> str:
@@ -225,7 +228,7 @@ class EqualizerManager:
 
         self.current_preset = 'custom'
         self._save_to_settings()
-        print("Saved custom equalizer preset")
+        logger.info("Saved custom equalizer preset")
         return True
 
     def get_band_frequency(self, band: int) -> int:
@@ -264,5 +267,5 @@ class EqualizerManager:
             return True
 
         except Exception as e:
-            print(f"Error restoring equalizer state: {e}")
+            logger.error(f"Error restoring equalizer state: {e}")
             return False

@@ -265,6 +265,25 @@ listbox > row:last-child {
    RECORDING INDICATOR
    ============================================ */
 
+.recording-active {
+    color: @error_color;
+    background-color: alpha(@error_color, 0.15);
+    animation: recording-pulse 2s ease-in-out infinite;
+}
+
+.recording-active:hover {
+    background-color: alpha(@error_color, 0.25);
+}
+
+@keyframes recording-pulse {
+    0%, 100% {
+        opacity: 1.0;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
 .error {
     color: @error_color;
     font-weight: bold;

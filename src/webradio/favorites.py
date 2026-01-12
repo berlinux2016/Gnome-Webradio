@@ -4,6 +4,10 @@ import json
 import os
 from typing import List, Dict, Optional
 from pathlib import Path
+from webradio.logger import get_logger
+from webradio.exceptions import FavoritesException
+
+logger = get_logger(__name__)
 
 
 class FavoritesManager:
@@ -18,7 +22,11 @@ class FavoritesManager:
 
     def _ensure_config_dir(self):
         """Create config directory if it doesn't exist"""
-        self.config_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            self.config_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            logger.error(f"Failed to create config directory: {e}")
+            raise FavoritesException(f"Cannot create config directory: {e}") from e
 
     def load_favorites(self):
         """Load favorites from file"""
@@ -26,10 +34,15 @@ class FavoritesManager:
             if self.favorites_file.exists():
                 with open(self.favorites_file, 'r', encoding='utf-8') as f:
                     self.favorites = json.load(f)
+                logger.info(f"Loaded {len(self.favorites)} favorites")
             else:
                 self.favorites = []
-        except Exception as e:
-            print(f"Error loading favorites: {e}")
+                logger.debug("No favorites file found, starting with empty list")
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in favorites file: {e}")
+            self.favorites = []
+        except (IOError, OSError) as e:
+            logger.error(f"Error loading favorites: {e}")
             self.favorites = []
 
     def save_favorites(self):
@@ -37,8 +50,10 @@ class FavoritesManager:
         try:
             with open(self.favorites_file, 'w', encoding='utf-8') as f:
                 json.dump(self.favorites, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            print(f"Error saving favorites: {e}")
+            logger.debug(f"Saved {len(self.favorites)} favorites")
+        except (IOError, OSError) as e:
+            logger.error(f"Error saving favorites: {e}")
+            raise FavoritesException(f"Cannot save favorites: {e}") from e
 
     def add_favorite(self, station: Dict) -> bool:
         """Add a station to favorites"""
