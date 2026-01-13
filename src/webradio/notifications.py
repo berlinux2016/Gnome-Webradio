@@ -30,7 +30,7 @@ class NotificationManager:
         """
         self.application = application
         self.enabled = True
-        self.show_track_changes = True
+        self.show_track_changes = False  # Disabled by default - GNOME shows MPRIS media controls
         self.last_notification_id = None
 
         logger.info("Notification manager initialized")
@@ -68,6 +68,10 @@ class NotificationManager:
             return
 
         try:
+            # Withdraw previous track change notification to avoid stacking
+            notification_id = "track-change"
+            self.application.withdraw_notification(notification_id)
+
             # Format notification body
             if artist:
                 body = f"{artist} - {title}"
@@ -82,12 +86,11 @@ class NotificationManager:
             # Add playback action
             notification.add_button("Show", "app.show-window")
 
-            # Send notification
-            notification_id = "track-change"
+            # Send notification (replaces the previous one with same ID)
             self.application.send_notification(notification_id, notification)
             self.last_notification_id = notification_id
 
-            logger.info(f"Track change notification: {station_name} - {body}")
+            logger.debug(f"Track change notification: {station_name} - {body}")
 
         except Exception as e:
             logger.error(f"Failed to send track change notification: {e}")
